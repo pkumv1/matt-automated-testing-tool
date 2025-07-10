@@ -1,10 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { ENV, validateEnvironment, initializeDirectories } from "./config";
+
+// Validate environment and initialize
+if (!validateEnvironment()) {
+  process.exit(1);
+}
+
+initializeDirectories();
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+app.use(session({
+  secret: ENV.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: ENV.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+app.use(express.json({ limit: ENV.MAX_FILE_SIZE }));
+app.use(express.urlencoded({ extended: false, limit: ENV.MAX_FILE_SIZE }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -59,7 +81,7 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = ENV.PORT;
   server.listen({
     port,
     host: "0.0.0.0",
