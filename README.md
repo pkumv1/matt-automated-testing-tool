@@ -36,12 +36,12 @@ A modern, AI-powered testing automation platform that generates comprehensive te
    # Edit .env with your values
    ```
 
-   **Important**: If your PostgreSQL password contains special characters (like @), they must be URL-encoded:
+   **Note about special characters**: If your PostgreSQL password contains special characters, they must be URL-encoded:
    - `@` → `%40`
    - `#` → `%23`
    - `$` → `%24`
    
-   Example: If your password is `post@123`, use `post%40123` in the DATABASE_URL.
+   Example: If your password is `pass@word`, use `pass%40word` in the DATABASE_URL.
 
 4. **Initialize the database**
    ```bash
@@ -64,7 +64,7 @@ A modern, AI-powered testing automation platform that generates comprehensive te
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string | `postgresql://postgres:post123@localhost:5432/postgres` |
 | `ANTHROPIC_API_KEY` | ✅ | Anthropic API key for AI services | `sk-ant-xxxxx` |
 | `SESSION_SECRET` | ✅ | Secret for session encryption | Random 64-char string |
 | `CONFIG_PATH` | ❌ | Path to additional config file | `./config/settings.json` |
@@ -101,6 +101,7 @@ A modern, AI-powered testing automation platform that generates comprehensive te
 2. **Verify connection string**
    - Ensure password is URL-encoded if it contains special characters
    - Check host, port, and database name
+   - Example working connection: `postgresql://postgres:post123@localhost:5432/postgres`
 
 3. **Test connection manually**
    ```bash
