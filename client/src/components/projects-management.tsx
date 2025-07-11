@@ -12,7 +12,7 @@ import type { Project } from "@shared/schema";
 interface ProjectsManagementProps {
   onProjectSelect: (project: Project) => void;
   activeProject?: Project | null;
-  onNewProject: () => void;
+  onNewProject?: () => void;
 }
 
 export default function ProjectsManagement({ onProjectSelect, activeProject, onNewProject }: ProjectsManagementProps) {
@@ -69,7 +69,10 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
         
         if (activeProject?.id === projectId) {
           // If the deleted project was active, clear selection
-          onProjectSelect(projects.find(p => p.id !== projectId) || projects[0]);
+          const remainingProjects = projects.filter(p => p.id !== projectId);
+          if (remainingProjects.length > 0) {
+            onProjectSelect(remainingProjects[0]);
+          }
         }
       } else {
         throw new Error('Failed to delete project');
@@ -96,7 +99,7 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Project Management</h2>
@@ -106,13 +109,15 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
           <Badge variant="secondary" className="text-sm">
             {projects.length} {projects.length === 1 ? 'Project' : 'Projects'}
           </Badge>
-          <Button 
-            onClick={onNewProject}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Project
-          </Button>
+          {onNewProject && (
+            <Button 
+              onClick={onNewProject}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Project
+            </Button>
+          )}
         </div>
       </div>
 
@@ -128,10 +133,12 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                   <FolderOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Yet</h3>
                   <p className="text-gray-500 mb-4">Create your first project to start automated code analysis with MATT</p>
-                  <Button onClick={onNewProject} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Your First Project
-                  </Button>
+                  {onNewProject && (
+                    <Button onClick={onNewProject} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Your First Project
+                    </Button>
+                  )}
                 </div>
               ) : (
                 projects.map((project) => (
