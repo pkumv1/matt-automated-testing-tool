@@ -35,8 +35,16 @@ module.exports = {
   globals: {
     'ts-jest': {
       tsconfig: {
-        jsx: 'react'
+        jsx: 'react',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true
       }
     }
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(nanoid|@anthropic-ai|@langchain)/)'
+  ],
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
   }
 };
