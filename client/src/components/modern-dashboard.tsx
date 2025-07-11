@@ -8,24 +8,27 @@ import {
   BarChart3, TestTube, Shield, Zap, Activity, 
   TrendingUp, Users, Clock, CheckCircle, AlertTriangle
 } from "lucide-react";
-import aiTestingImage from "@assets/AI-Customer-Experience_1751904507641.jpg";
 import type { Project } from "@shared/schema";
 
 interface ModernDashboardProps {
+  activeProject: Project | null;
   projects: Project[];
+  agents: any[];
+  testCases: any[];
   onProjectSelect: (project: Project) => void;
   onNewProject: () => void;
+  onStartAnalysis: () => void;
 }
 
 export default function ModernDashboard({ 
+  activeProject,
   projects, 
+  agents,
+  testCases,
   onProjectSelect, 
-  onNewProject 
+  onNewProject,
+  onStartAnalysis 
 }: ModernDashboardProps) {
-  const { data: agents = [] } = useQuery({
-    queryKey: ['/api/agents'],
-  });
-
   const getProjectStats = () => {
     const total = projects.length;
     const completed = projects.filter(p => p.analysisStatus === 'completed').length;
@@ -49,7 +52,7 @@ export default function ModernDashboard({
     },
     {
       title: "Tests Generated",
-      value: "1,247",
+      value: testCases.length.toString(),
       change: "+8%",
       trend: "up",
       icon: TestTube,
@@ -95,7 +98,7 @@ export default function ModernDashboard({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-8">
       {/* Welcome Section with MATT Graphic */}
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white p-8 rounded-2xl relative overflow-hidden">
         <div className="flex items-center justify-between gap-8">
@@ -332,7 +335,7 @@ export default function ModernDashboard({
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={onStartAnalysis}>
                 <TestTube className="w-4 h-4 mr-2" />
                 Run Demo Analysis
               </Button>
