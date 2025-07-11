@@ -73,24 +73,37 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "..", "public");
+  // Updated to look for the build output in dist/public as configured in vite.config.ts
+  const distPath = path.resolve(__dirname, "..", "dist", "public");
 
   if (!fs.existsSync(distPath)) {
-    // Try alternate path for production build
-    const altDistPath = path.resolve(process.cwd(), "public");
-    if (fs.existsSync(altDistPath)) {
-      app.use(express.static(altDistPath));
-      app.use("*", (_req, res) => {
-        res.sendFile(path.resolve(altDistPath, "index.html"));
-      });
-      return;
+    // Try alternate paths for production build
+    const altPaths = [
+      path.resolve(process.cwd(), "dist", "public"),
+      path.resolve(__dirname, "..", "public"),
+      path.resolve(process.cwd(), "public")
+    ];
+    
+    for (const altPath of altPaths) {
+      if (fs.existsSync(altPath)) {
+        log(`Found static files at: ${altPath}`);
+        app.use(express.static(altPath));
+        app.use("*", (_req, res) => {
+          res.sendFile(path.resolve(altPath, "index.html"));
+        });
+        return;
+      }
     }
     
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory. Looked in:\n` +
+      `  - ${distPath}\n` +
+      `  - ${altPaths.join('\n  - ')}\n` +
+      `Please run 'npm run build' first.`,
     );
   }
 
+  log(`Serving static files from: ${distPath}`);
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
