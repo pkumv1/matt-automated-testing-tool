@@ -77,7 +77,7 @@ export default function ModernDashboardPage() {
     clearProjectCache(activeProject?.id);
     setActiveProject(null);
     setUserClearedProject(true);
-    setActiveTab("dashboard");
+    setActiveTab("acquisition");
   };
 
   const handleTabChange = (tab: string) => {
@@ -121,6 +121,7 @@ export default function ModernDashboardPage() {
             <ProjectsManagement 
               activeProject={activeProject}
               onProjectSelect={handleProjectSelect}
+              onNewProject={handleNewProject}
             />
           )}
           
