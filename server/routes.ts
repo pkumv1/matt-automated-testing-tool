@@ -11,11 +11,51 @@ import { jiraService } from "./services/jira-integration";
 import multer from "multer";
 import { z } from "zod";
 
+// Constants for timeout values - no more magic numbers
+const TIMEOUTS = {
+  TEST_EXECUTION: 2000,
+  ANALYSIS_DELAY: 1000,
+  ANALYSIS_STEP_INTERVAL: 3000,
+  MAX_TEST_CASES: 25,
+  FILE_SIZE_LIMIT: 50 * 1024 * 1024 // 50MB
+};
+
+// Timeout management to prevent memory leaks
+const activeTimeouts = new Map<string, NodeJS.Timeout>();
+
+function createManagedTimeout(key: string, callback: () => void, delay: number): void {
+  // Clear existing timeout if it exists
+  if (activeTimeouts.has(key)) {
+    clearTimeout(activeTimeouts.get(key)!);
+  }
+  
+  const timeout = setTimeout(() => {
+    activeTimeouts.delete(key);
+    callback();
+  }, delay);
+  
+  activeTimeouts.set(key, timeout);
+}
+
+function clearManagedTimeout(key: string): void {
+  const timeout = activeTimeouts.get(key);
+  if (timeout) {
+    clearTimeout(timeout);
+    activeTimeouts.delete(key);
+  }
+}
+
+// Cleanup function for graceful shutdown
+export function cleanupTimeouts(): void {
+  activeTimeouts.forEach((timeout) => clearTimeout(timeout));
+  activeTimeouts.clear();
+}
+
 // Configure multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: TIMEOUTS.FILE_SIZE_LIMIT,
   }
 });
 
@@ -40,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let enhancedProject = { ...validatedData };
       
       if (validatedData.sourceType === 'drive') {
-        console.log('🔄 Acquiring project from Google Drive...');
+        // Acquiring project from Google Drive
         const driveData = validatedData.repositoryData as any;
         const driveResult = await googleDriveService.acquireProject({
           fileId: driveData.driveFileId,
@@ -59,10 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acquisitionResult: driveResult,
           fileCount: driveResult.files.length
         };
-        console.log(`✅ Acquired ${driveResult.files.length} files from Google Drive`);
+        // Successfully acquired files from Google Drive
         
       } else if (validatedData.sourceType === 'jira') {
-        console.log('🔄 Acquiring project from JIRA...');
+        // Acquiring project from JIRA
         const jiraData = validatedData.repositoryData as any;
         const jiraResult = await jiraService.acquireProject({
           serverUrl: jiraData.jiraServerUrl,
@@ -84,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           issueCount: jiraResult.issues.length,
           attachmentCount: jiraResult.attachments.length
         };
-        console.log(`✅ Acquired JIRA project with ${jiraResult.issues.length} issues and ${jiraResult.attachments.length} attachments`);
+        // Successfully acquired JIRA project data
       }
       
       const project = await storage.createProject(enhancedProject);
@@ -187,13 +227,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:id/test-cases", async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
-      console.log(`API: Fetching test cases for project ${projectId}`);
       const testCases = await storage.getTestCasesByProject(projectId);
-      console.log(`API: Found ${testCases.length} test cases:`, testCases.map(tc => ({ id: tc.id, name: tc.name, type: tc.type })));
       res.json(testCases);
     } catch (error) {
-      console.error('API: Error fetching test cases:', error);
-      res.status(500).json({ message: "Failed to fetch test cases" });
+      res.status(500).json({ message: "Failed to fetch test cases", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -278,8 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(created);
       }
     } catch (error) {
-      console.error('Error creating test cases:', error);
-      res.status(500).json({ message: "Failed to create test cases" });
+      res.status(500).json({ message: "Failed to create test cases", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -386,8 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ testScripts });
     } catch (error) {
-      console.error('Error generating platform tests:', error);
-      res.status(500).json({ message: "Failed to generate platform test scripts" });
+      res.status(500).json({ message: "Failed to generate platform test scripts", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -423,8 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error('Error executing platform tests:', error);
-      res.status(500).json({ message: "Failed to execute platform tests" });
+      res.status(500).json({ message: "Failed to execute platform tests", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -434,8 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const agents = multiPlatformTestingService.getMCPAgents();
       res.json({ agents });
     } catch (error) {
-      console.error('Error getting MCP agents:', error);
-      res.status(500).json({ message: "Failed to get MCP agents status" });
+      res.status(500).json({ message: "Failed to get MCP agents status", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -485,7 +518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Store generated test cases
       const createdTestCases = [];
-      for (const testCase of filteredTestCases.slice(0, 25)) { // Limit to 25 test cases for better performance
+      for (const testCase of filteredTestCases.slice(0, TIMEOUTS.MAX_TEST_CASES)) { // Limit test cases for better performance
         const created = await storage.createTestCase({
           projectId,
           name: testCase.name,
@@ -513,8 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error('Error generating enhanced test suite:', error);
-      res.status(500).json({ message: "Failed to generate enhanced test suite" });
+      res.status(500).json({ message: "Failed to generate enhanced test suite", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -616,13 +648,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'running' 
       });
 
-      // Simulate test execution
-      setTimeout(async () => {
+      // Simulate test execution with managed timeout
+      createManagedTimeout(`test-${testCaseId}`, async () => {
         const success = Math.random() > 0.3; // 70% success rate
-        await storage.updateTestCase(testCaseId, {
-          status: success ? 'passed' : 'failed'
-        });
-      }, 2000);
+        try {
+          await storage.updateTestCase(testCaseId, {
+            status: success ? 'passed' : 'failed'
+          });
+        } catch (error) {
+          console.error(`Failed to update test case ${testCaseId}:`, error);
+        }
+      }, TIMEOUTS.TEST_EXECUTION);
 
       res.json({ message: "Test execution started" });
     } catch (error) {
@@ -630,63 +666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Trigger analysis workflow manually
-  app.post("/api/projects/:id/analyze", async (req, res) => {
-    try {
-      const projectId = parseInt(req.params.id);
-      const project = await storage.getProject(projectId);
-      
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-
-      // Update project status to analyzing
-      await storage.updateProject(projectId, { analysisStatus: "analyzing" });
-      
-      // Create analyses with running status to show progress
-      const analysisTypes = ["initial_analysis", "architecture_review", "risk_assessment", "test_generation"];
-      
-      for (let i = 0; i < analysisTypes.length; i++) {
-        const type = analysisTypes[i];
-        await storage.createAnalysis({
-          projectId: projectId,
-          type,
-          agentId: null
-        });
-      }
-
-      // Simulate progressive analysis workflow
-      setTimeout(async () => {
-        const analyses = await storage.getAnalysesByProject(projectId);
-        for (let i = 0; i < analyses.length; i++) {
-          setTimeout(async () => {
-            await storage.updateAnalysis(analyses[i].id, { 
-              status: "completed",
-              results: { 
-                completed: true, 
-                timestamp: new Date().toISOString(),
-                type: analyses[i].type
-              }
-            });
-            
-            // Mark next analysis as running
-            if (i + 1 < analyses.length) {
-              await storage.updateAnalysis(analyses[i + 1].id, { status: "running" });
-            }
-            
-            // Mark project as completed when all done
-            if (i === analyses.length - 1) {
-              await storage.updateProject(projectId, { analysisStatus: "completed" });
-            }
-          }, i * 3000); // 3 seconds between each step
-        }
-      }, 1000);
-      
-      res.json({ message: "Analysis workflow started" });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to start analysis" });
-    }
-  });
+  // Note: Analysis route already defined above - removing duplicate
 
   // Get project metrics/summary
   app.get("/api/projects/:id/metrics", async (req, res) => {
