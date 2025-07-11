@@ -1,10 +1,26 @@
 // Environment configuration for MATT application
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load environment variables from .env file if it exists
-if (fs.existsSync('.env')) {
-  const dotenv = await import('dotenv');
-  dotenv.config();
+// Handle ES module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables synchronously before anything else
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const dotenv = await import('dotenv');
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      console.log('✓ Loaded environment variables from .env');
+    } else {
+      console.log('⚠️ .env file not found, using environment variables');
+    }
+  } catch (error) {
+    console.error('Error loading dotenv:', error);
+  }
 }
 
 export const ENV = {
