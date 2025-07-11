@@ -53,12 +53,37 @@ A modern, AI-powered testing automation platform that generates comprehensive te
    # Development mode
    npm run dev
 
-   # Production mode
+   # Production mode (Option 1: Using deployment script)
+   git pull  # Get the latest updates
+   chmod +x deploy.sh
+   ./deploy.sh
+   
+   # Production mode (Option 2: Manual)
    npm run build
    npm start
    ```
 
    The application will be available at `http://localhost:5000`
+
+### Production Deployment Script
+
+The `deploy.sh` script automates the production deployment process:
+
+```bash
+# Basic deployment
+./deploy.sh
+
+# With database initialization
+./deploy.sh --init-db
+```
+
+The script will:
+- Load environment variables from `.env`
+- Verify all required variables are set
+- Install dependencies if needed
+- Build the application
+- Initialize database (if --init-db flag is used)
+- Start the application in production mode
 
 ## Environment Variables
 
