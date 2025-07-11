@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
-import ModernDashboardPage from "@/pages/modern-dashboard-clean";
+import ModernDashboardPage from "@/pages/modern-dashboard-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
