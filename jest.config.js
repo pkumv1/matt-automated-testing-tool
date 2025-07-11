@@ -12,6 +12,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/client/src/$1',
     '^@shared/(.*)$': '<rootDir>/shared/$1',
+    '^@assets/(.*)$': '<rootDir>/client/src/assets/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   coverageDirectory: 'coverage',
