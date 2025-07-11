@@ -1,111 +1,107 @@
-# MATT (Mars Automated Testing Tool)
+# MATT - Mars Automated Testing Tool
 
-## Overview
+MATT is an enterprise-grade automated testing platform that leverages AI to analyze code, identify risks, and generate comprehensive test suites.
 
-MATT is an advanced AI-powered automated testing platform that leverages multi-agent architecture for intelligent software quality assurance and comprehensive system analysis.
+## Features
 
-## 🌟 Key Features
+- 🤖 AI-powered code analysis and test generation
+- 🔐 Security vulnerability detection
+- ⚡ Performance testing and optimization
+- 🎯 Automated test case creation across multiple platforms
+- 📊 Comprehensive reporting and analytics
+- 🚀 Production-ready deployment tools
 
-- **Multi-Platform Project Acquisition**: Support for GitHub repositories, Google Drive files/folders, and JIRA projects
-- **AI-Powered Analysis**: Claude 4.0 Sonnet integration for intelligent code analysis and risk assessment
-- **Comprehensive Testing**: 11+ testing platforms including Playwright, Cypress, k6, OWASP ZAP, Lighthouse, and more
-- **Real-Time Monitoring**: Live test execution with progress tracking and detailed logging
-- **Production-Grade Deployment**: Automated deployment readiness assessment and configuration
-- **Modern Architecture**: React TypeScript frontend with Express backend and PostgreSQL database
+## Prerequisites
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+
+- Node.js 18+ 
 - PostgreSQL database
-- Anthropic API key (Claude)
+- Anthropic API key
 
-### Installation
+## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/pkumv1/matt-automated-testing-tool.git
-cd matt-automated-testing-tool
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/pkumv1/matt-automated-testing-tool.git
+   cd matt-automated-testing-tool
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and add:
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `ANTHROPIC_API_KEY` - Your Anthropic API key
+   - `SESSION_SECRET` - A random string for session security
+
+4. **Set up the database**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Build the application**
+   ```bash
+   npm run build
+   ```
+
+6. **Start the application**
+   ```bash
+   npm start
+   ```
+
+   For development:
+   ```bash
+   npm run dev
+   ```
+
+## Project Structure
+
+```
+matt-automated-testing-tool/
+├── client/          # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── lib/
+├── server/          # Express backend
+│   ├── routes/
+│   └── agents/
+├── shared/          # Shared types and schemas
+└── attached_assets/ # Static assets
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+## Key Components
 
-3. Set up environment variables:
-```bash
-export DATABASE_URL="postgresql://user:password@host:port/database"
-export ANTHROPIC_API_KEY="sk-ant-xxxxx"
-```
+- **Code Acquisition**: Supports GitHub, Google Drive, and JIRA integrations
+- **Analysis Engine**: AI-powered code analysis for architecture, security, and performance
+- **Test Generation**: Automated test case creation with multiple framework support
+- **Deployment Tools**: Production-ready deployment configurations and checklists
 
-4. Run the application:
-```bash
-# Development mode
-npm run dev
+## API Endpoints
 
-# Production mode
-npm run build
-npm start
-```
+- `/api/projects` - Project management
+- `/api/agents` - AI agent management
+- `/api/analyses` - Code analysis results
+- `/api/test-cases` - Test case management
 
-## 🏗️ Architecture
+## Contributing
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and optimized builds
-- **UI Library**: Shadcn/ui components built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom Carbon Design System colors
-- **State Management**: TanStack React Query for server state management
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Backend
-- **Runtime**: Node.js with Express server
-- **Language**: TypeScript with ES modules
-- **Database**: PostgreSQL with Drizzle ORM
-- **AI Integration**: Anthropic Claude API for intelligent analysis
+## License
 
-### Key Components
-- **Multi-Agent System**: Supervisor, Analyzer, Risk Assessment, Test Generation, and Environment agents
-- **Testing Framework**: Support for Jest, Playwright, k6, OWASP ZAP, Lighthouse, and Postman
-- **Integration Services**: Google Drive and JIRA APIs for project acquisition
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 📊 Testing Capabilities
+## Support
 
-MATT supports comprehensive testing across multiple dimensions:
-
-- **Security Testing**: OWASP ZAP, Burp Suite, Nessus vulnerability scans
-- **Performance Testing**: k6, JMeter load testing and benchmarking
-- **Functional Testing**: Playwright, Cypress, Selenium automated testing
-- **Accessibility Testing**: Axe-Core, Pa11y WCAG 2.1 AA compliance
-- **API Testing**: Postman, REST Assured API validation
-- **Visual Testing**: Percy, BackstopJS visual regression testing
-
-## 🚀 Deployment
-
-The application is production-ready and can be deployed to:
-
-- **Replit Autoscale**: Direct deployment with custom domain support
-- **Docker**: Containerized deployment (Dockerfile included)
-- **Traditional VPS**: Node.js server deployment
-- **Cloud Platforms**: AWS, GCP, Azure compatible
-
-### Live Demo
-Visit the live demo at: [https://demo.mars-techs.ai](https://demo.mars-techs.ai)
-
-## 📝 Documentation
-
-- `replit.md` - Complete architecture and development guide
-- `DEPLOYMENT_README.md` - Detailed deployment instructions
-- `FILE_STRUCTURE.md` - Project structure overview
-
-## 🤝 Contributing
-
-This project was built for enterprise-grade automated testing. Contributions are welcome!
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
----
-
-Built with modern web technologies for intelligent software quality assurance.
+For issues and questions, please open an issue on GitHub or contact the development team.
