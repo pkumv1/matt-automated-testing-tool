@@ -2,12 +2,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 // Handle ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables synchronously before anything else
+// Load environment variables synchronously
 function loadEnvironmentVariables() {
   const envPath = path.resolve(process.cwd(), '.env');
   
@@ -20,7 +21,6 @@ function loadEnvironmentVariables() {
   // In development, try to load from .env file
   try {
     if (fs.existsSync(envPath)) {
-      const dotenv = await import('dotenv');
       const result = dotenv.config({ path: envPath });
       
       if (result.error) {
@@ -41,7 +41,7 @@ function loadEnvironmentVariables() {
 }
 
 // Load environment variables immediately
-await loadEnvironmentVariables();
+loadEnvironmentVariables();
 
 // Helper function to validate and decode database URL
 function validateDatabaseUrl(url: string): string {
