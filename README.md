@@ -1,23 +1,16 @@
-# MATT - Mars Automated Testing Tool
+# MATT - Modern Automated Testing Tool
 
-MATT is an enterprise-grade automated testing platform that leverages AI to analyze code, identify risks, and generate comprehensive test suites.
+A modern, AI-powered testing automation platform that generates comprehensive test suites for your applications.
 
-## Features
+## Quick Start
 
-- 🤖 AI-powered code analysis and test generation
-- 🔐 Security vulnerability detection
-- ⚡ Performance testing and optimization
-- 🎯 Automated test case creation across multiple platforms
-- 📊 Comprehensive reporting and analytics
-- 🚀 Production-ready deployment tools
+### Prerequisites
 
-## Prerequisites
+- Node.js 18.x or 20.x
+- PostgreSQL 13+
+- npm 9.x+
 
-- Node.js 18+ 
-- PostgreSQL database
-- Anthropic API key
-
-## Installation
+### Installation
 
 1. **Clone the repository**
    ```bash
@@ -31,77 +24,138 @@ MATT is an enterprise-grade automated testing platform that leverages AI to anal
    ```
 
 3. **Set up environment variables**
+   
+   **Option A: Use the automated setup wizard (Recommended)**
    ```bash
-   cp .env.example .env
+   npm run setup
    ```
    
-   Edit `.env` and add:
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `ANTHROPIC_API_KEY` - Your Anthropic API key
-   - `SESSION_SECRET` - A random string for session security
+   **Option B: Manual setup**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your values
+   ```
 
-4. **Set up the database**
+   **Important**: If your PostgreSQL password contains special characters (like @), they must be URL-encoded:
+   - `@` → `%40`
+   - `#` → `%23`
+   - `$` → `%24`
+   
+   Example: If your password is `post@123`, use `post%40123` in the DATABASE_URL.
+
+4. **Initialize the database**
    ```bash
    npm run db:push
    ```
 
-5. **Build the application**
+5. **Start the application**
    ```bash
-   npm run build
-   ```
+   # Development mode
+   npm run dev
 
-6. **Start the application**
-   ```bash
+   # Production mode
+   npm run build
    npm start
    ```
 
-   For development:
-   ```bash
-   npm run dev
-   ```
+   The application will be available at `http://localhost:5000`
 
-## Project Structure
+## Environment Variables
 
-```
-matt-automated-testing-tool/
-├── client/          # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── lib/
-├── server/          # Express backend
-│   ├── routes/
-│   └── agents/
-├── shared/          # Shared types and schemas
-└── attached_assets/ # Static assets
-```
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
+| `ANTHROPIC_API_KEY` | ✅ | Anthropic API key for AI services | `sk-ant-xxxxx` |
+| `SESSION_SECRET` | ✅ | Secret for session encryption | Random 64-char string |
+| `CONFIG_PATH` | ❌ | Path to additional config file | `./config/settings.json` |
+| `NODE_ENV` | ❌ | Environment mode | `development` or `production` |
+| `PORT` | ❌ | Server port (default: 5000) | `5000` |
 
-## Key Components
+## Features
 
-- **Code Acquisition**: Supports GitHub, Google Drive, and JIRA integrations
-- **Analysis Engine**: AI-powered code analysis for architecture, security, and performance
-- **Test Generation**: Automated test case creation with multiple framework support
-- **Deployment Tools**: Production-ready deployment configurations and checklists
+- **AI-Powered Test Generation**: Automatically generates comprehensive test suites
+- **Multi-Platform Support**: Integrates with Jest, Playwright, Selenium, and more
+- **Source Integration**: Connect with GitHub, Google Drive, and JIRA
+- **Real-time Analysis**: Live test execution and results monitoring
+- **Risk Assessment**: Identifies potential vulnerabilities and performance issues
 
 ## API Endpoints
 
-- `/api/projects` - Project management
-- `/api/agents` - AI agent management
-- `/api/analyses` - Code analysis results
-- `/api/test-cases` - Test case management
+- `GET /health` - Health check endpoint
+- `GET /api/projects` - List all projects
+- `POST /api/projects` - Create a new project
+- `GET /api/projects/:id` - Get project details
+- `POST /api/projects/:id/analyze` - Start project analysis
+- `POST /api/projects/:id/generate-tests` - Generate test suite
+- `POST /api/projects/:id/execute-tests` - Execute tests
 
-## Contributing
+## Troubleshooting
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Database Connection Issues
 
-## License
+1. **Check PostgreSQL is running**
+   ```bash
+   pg_isready
+   ```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+2. **Verify connection string**
+   - Ensure password is URL-encoded if it contains special characters
+   - Check host, port, and database name
+
+3. **Test connection manually**
+   ```bash
+   psql $DATABASE_URL
+   ```
+
+### Environment Variable Issues
+
+1. **Missing .env file**
+   - Run `npm run setup` to create one
+   - Or copy `.env.example` to `.env`
+
+2. **Invalid API keys**
+   - Anthropic API keys should start with `sk-ant-`
+   - Verify your API key is active
+
+### Build Issues
+
+1. **Clear build artifacts**
+   ```bash
+   rm -rf dist/
+   rm -rf node_modules/
+   npm install
+   npm run build
+   ```
+
+2. **Check Node.js version**
+   ```bash
+   node --version  # Should be 18.x or 20.x
+   ```
+
+## Development
+
+### Running Tests
+```bash
+npm test              # Run all tests
+npm run test:watch    # Watch mode
+npm run test:coverage # With coverage report
+```
+
+### Database Migrations
+```bash
+npm run db:push     # Push schema changes
+npm run db:migrate  # Run migrations
+```
+
+## Production Deployment
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
 
 ## Support
 
-For issues and questions, please open an issue on GitHub or contact the development team.
+- GitHub Issues: [Report a bug](https://github.com/pkumv1/matt-automated-testing-tool/issues)
+- Documentation: [Wiki](https://github.com/pkumv1/matt-automated-testing-tool/wiki)
+
+## License
+
+MIT License - see [LICENSE](./LICENSE) for details.
