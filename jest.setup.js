@@ -1,3 +1,4 @@
+// Import testing utilities
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
@@ -33,3 +34,10 @@ process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.SESSION_SECRET = 'test-secret';
 process.env.ANTHROPIC_API_KEY = 'test-api-key';
+
+// Mock console methods to reduce noise in tests
+global.console = {
+  ...console,
+  error: jest.fn(),
+  warn: jest.fn(),
+};
