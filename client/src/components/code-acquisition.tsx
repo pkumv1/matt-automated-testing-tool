@@ -15,6 +15,31 @@ interface CodeAcquisitionProps {
   onProjectCreated: (project: Project) => void;
 }
 
+// Helper function to parse GitHub URL
+function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+  // Remove trailing slashes
+  url = url.trim().replace(/\/$/, '');
+  
+  // Try different GitHub URL patterns
+  const patterns = [
+    /^https?:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?$/,
+    /^git@github\.com:([^\/]+)\/([^\/]+?)(?:\.git)?$/,
+    /^([^\/]+)\/([^\/]+)$/ // Simple owner/repo format
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return {
+        owner: match[1],
+        repo: match[2].replace(/\.git$/, '') // Remove .git suffix if present
+      };
+    }
+  }
+  
+  return null;
+}
+
 export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionProps) {
   const [selectedSource, setSelectedSource] = useState<"github" | "drive" | "jira">("github");
   const [connectionStatus, setConnectionStatus] = useState<{
@@ -68,10 +93,12 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
         jiraApiToken: "",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      // Try to extract a more specific error message
+      const errorMessage = error?.message || "Failed to create project. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to create project. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -115,30 +142,60 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
       return;
     }
 
-    const projectData: InsertProject = {
-      name: formData.name,
-      description: formData.description,
-      sourceType: selectedSource,
-      sourceUrl: selectedSource === "github" ? formData.sourceUrl : 
-                 selectedSource === "drive" ? `https://drive.google.com/file/d/${formData.driveFileId}` :
-                 `${formData.jiraServerUrl}/projects/${formData.jiraProjectKey}`,
-      repositoryData: {
-        ...(selectedSource === "github" && {
+    let projectData: InsertProject;
+    
+    if (selectedSource === "github") {
+      // Parse GitHub URL to extract owner and repo
+      const githubInfo = parseGitHubUrl(formData.sourceUrl);
+      
+      if (!githubInfo) {
+        toast({
+          title: "Invalid GitHub URL",
+          description: "Please provide a valid GitHub repository URL (e.g., https://github.com/owner/repo)",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      projectData = {
+        name: formData.name,
+        description: formData.description,
+        sourceType: "github",
+        sourceUrl: formData.sourceUrl,
+        repositoryData: {
+          owner: githubInfo.owner,
+          repo: githubInfo.repo,
           branch: formData.branch,
-          token: formData.token || undefined,
-        }),
-        ...(selectedSource === "drive" && {
+          path: "", // Optional, empty by default
+          accessToken: formData.token || undefined, // Note: renamed from 'token' to 'accessToken'
+        },
+      };
+    } else if (selectedSource === "drive") {
+      projectData = {
+        name: formData.name,
+        description: formData.description,
+        sourceType: "drive",
+        sourceUrl: `https://drive.google.com/file/d/${formData.driveFileId}`,
+        repositoryData: {
           driveFileId: formData.driveFileId,
           driveAccessToken: formData.driveAccessToken,
-        }),
-        ...(selectedSource === "jira" && {
+        },
+      };
+    } else {
+      // JIRA
+      projectData = {
+        name: formData.name,
+        description: formData.description,
+        sourceType: "jira",
+        sourceUrl: `${formData.jiraServerUrl}/projects/${formData.jiraProjectKey}`,
+        repositoryData: {
           jiraServerUrl: formData.jiraServerUrl,
           jiraProjectKey: formData.jiraProjectKey,
           jiraEmail: formData.jiraEmail,
           jiraApiToken: formData.jiraApiToken,
-        }),
-      },
-    };
+        },
+      };
+    }
 
     createProjectMutation.mutate(projectData);
   };
