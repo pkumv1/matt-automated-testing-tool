@@ -71,16 +71,67 @@ pool.on('error', (err) => {
   console.error('❌ Unexpected database pool error:', err);
 });
 
-// Log queries in development
+// Log queries in development - FIXED VERSION
 if (ENV.NODE_ENV === 'development') {
   const originalQuery = pool.query.bind(pool);
   pool.query = function(...args: any[]) {
-    console.log('🔍 SQL:', args[0]?.substring(0, 100) + (args[0]?.length > 100 ? '...' : ''));
+    // Handle different query formats
+    let queryText = 'Unknown query';
+    
+    if (typeof args[0] === 'string') {
+      // Simple string query
+      queryText = args[0];
+    } else if (args[0] && typeof args[0] === 'object') {
+      // Query object format
+      if (args[0].text) {
+        queryText = args[0].text;
+      } else if (args[0].sql) {
+        queryText = args[0].sql;
+      }
+    }
+    
+    // Only log if we have a valid query string
+    if (typeof queryText === 'string') {
+      console.log('🔍 SQL:', queryText.substring(0, 100) + (queryText.length > 100 ? '...' : ''));
+    }
+    
     return originalQuery(...args);
   };
 }
 
 export const db = drizzle(pool, { schema });
+
+// Add health check function
+export async function checkDatabaseHealth() {
+  try {
+    const client = await pool.connect();
+    try {
+      const result = await client.query('SELECT NOW() as time, current_database() as database');
+      return {
+        status: 'healthy',
+        details: {
+          connected: true,
+          time: result.rows[0].time,
+          database: result.rows[0].database,
+          poolSize: pool.totalCount,
+          idleConnections: pool.idleCount,
+          waitingClients: pool.waitingCount
+        }
+      };
+    } finally {
+      client.release();
+    }
+  } catch (error: any) {
+    return {
+      status: 'error',
+      details: {
+        connected: false,
+        error: error.message,
+        code: error.code
+      }
+    };
+  }
+}
 
 // Graceful shutdown
 process.on('SIGINT', () => {
