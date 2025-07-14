@@ -1,12 +1,15 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen } from "lucide-react";
+import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen, Save, Edit, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
 interface ProjectsManagementProps {
@@ -17,11 +20,59 @@ interface ProjectsManagementProps {
 
 export default function ProjectsManagement({ onProjectSelect, activeProject, onNewProject }: ProjectsManagementProps) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "" });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: projects = [], isLoading } = useQuery<Project[]>({
+  const { data: projects = [], isLoading, refetch } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
+    refetchInterval: 10000, // Refetch every 10 seconds to ensure data is fresh
+  });
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (hasUnsavedChanges && editingId) {
+      // Clear existing timeout
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+
+      // Set new timeout for auto-save after 2 seconds of inactivity
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        handleSaveProject(editingId);
+      }, 2000);
+    }
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [editForm, hasUnsavedChanges, editingId]);
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Project> }) => {
+      const response = await apiRequest("PATCH", `/api/projects/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Project Updated",
+        description: "Your changes have been saved successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      setHasUnsavedChanges(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusIcon = (status: string) => {
@@ -88,6 +139,41 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
     }
   };
 
+  const handleEditProject = (project: Project) => {
+    setEditingId(project.id);
+    setEditForm({
+      name: project.name,
+      description: project.description || "",
+    });
+    setHasUnsavedChanges(false);
+  };
+
+  const handleSaveProject = async (projectId: number) => {
+    updateProjectMutation.mutate({
+      id: projectId,
+      data: {
+        name: editForm.name,
+        description: editForm.description,
+      },
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ name: "", description: "" });
+    setHasUnsavedChanges(false);
+  };
+
+  const handleInputChange = (field: 'name' | 'description', value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Refresh projects when component mounts
+  useEffect(() => {
+    refetch();
+  }, []);
+
   if (isLoading) {
     return (
       <Card>
@@ -109,6 +195,13 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
           <Badge variant="secondary" className="text-sm">
             {projects.length} {projects.length === 1 ? 'Project' : 'Projects'}
           </Badge>
+          <Button 
+            onClick={refetch}
+            variant="outline"
+            size="sm"
+          >
+            Refresh
+          </Button>
           {onNewProject && (
             <Button 
               onClick={onNewProject}
@@ -144,24 +237,53 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                 projects.map((project) => (
                   <div
                     key={project.id}
-                    className={`border rounded-lg p-4 transition-all hover:shadow-md cursor-pointer ${
+                    className={`border rounded-lg p-4 transition-all hover:shadow-md ${
                       activeProject?.id === project.id ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => onProjectSelect(project)}
+                    } ${editingId === project.id ? 'cursor-default' : 'cursor-pointer'}`}
+                    onClick={() => editingId !== project.id && onProjectSelect(project)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          {getStatusIcon(project.analysisStatus)}
-                          <h3 className="font-semibold text-gray-900">{project.name}</h3>
-                          <Badge className={getStatusColor(project.analysisStatus)}>
-                            {project.analysisStatus}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-sm text-gray-600 mb-3">
-                          {project.description || "No description provided"}
-                        </p>
+                        {editingId === project.id ? (
+                          <>
+                            <div className="space-y-3">
+                              <Input
+                                value={editForm.name}
+                                onChange={(e) => handleInputChange('name', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-semibold"
+                                placeholder="Project name"
+                              />
+                              <Textarea
+                                value={editForm.description}
+                                onChange={(e) => handleInputChange('description', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-sm"
+                                placeholder="Project description"
+                                rows={2}
+                              />
+                              {hasUnsavedChanges && (
+                                <p className="text-xs text-orange-600">
+                                  Auto-saving in 2 seconds...
+                                </p>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-3 mb-2">
+                              {getStatusIcon(project.analysisStatus)}
+                              <h3 className="font-semibold text-gray-900">{project.name}</h3>
+                              <Badge className={getStatusColor(project.analysisStatus)}>
+                                {project.analysisStatus}
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-sm text-gray-600 mb-3">
+                              {project.description || "No description provided"}
+                            </p>
+                          </>
+                        )}
                         
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <div className="flex items-center gap-1">
@@ -184,17 +306,58 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onProjectSelect(project);
-                          }}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          Open
-                        </Button>
+                        {editingId === project.id ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveProject(project.id);
+                              }}
+                              disabled={updateProjectMutation.isPending}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEdit();
+                              }}
+                              className="text-gray-600 hover:text-gray-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditProject(project);
+                              }}
+                              className="text-gray-600 hover:text-gray-700"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onProjectSelect(project);
+                              }}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              Open
+                            </Button>
+                          </>
+                        )}
                         
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
