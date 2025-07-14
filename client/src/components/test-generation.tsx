@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,16 @@ export default function TestGeneration({ project }: TestGenerationProps) {
   const [selectedFramework, setSelectedFramework] = useState("selenium");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up polling interval on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const { data: testCases = [] } = useQuery<TestCase[]>({
     queryKey: [`/api/projects/${project.id}/test-cases`],
@@ -33,7 +43,8 @@ export default function TestGeneration({ project }: TestGenerationProps) {
       console.log('Frontend: Test cases length:', data.length);
       return data;
     },
-    refetchInterval: 3000, // Poll every 3 seconds for updates
+    refetchInterval: 10000, // Increased from 3s to 10s to reduce memory usage
+    refetchIntervalInBackground: false, // Stop polling when tab is not active
   });
 
   const { data: analyses = [] } = useQuery({

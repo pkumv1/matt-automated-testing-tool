@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ModernSidebar from "@/components/modern-sidebar";
 import ModernHeader from "@/components/modern-header";
@@ -45,6 +45,15 @@ export default function ModernDashboardPage() {
   if (!activeProject && projects.length > 0 && activeTab === "dashboard" && !userClearedProject) {
     setActiveProject(projects[0]);
   }
+
+  // Cleanup query cache on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Clear all project-related queries on component unmount
+      queryClient.removeQueries({ queryKey: ['/api/projects'] });
+      queryClient.removeQueries({ queryKey: ['/api/agents'] });
+    };
+  }, [queryClient]);
 
   // Clear cache when switching projects
   const clearProjectCache = (projectId?: number) => {
@@ -101,10 +110,11 @@ export default function ModernDashboardPage() {
         <ModernHeader 
           activeProject={activeProject}
           onNewProject={handleNewProject}
-          sidebarCollapsed={sidebarCollapsed}
+          isCollapsed={sidebarCollapsed}
         />
         
-        <main className="flex-1 overflow-auto">
+        {/* Add proper padding-top to account for fixed header */}
+        <main className="flex-1 overflow-auto pt-20">
           {activeTab === "dashboard" && (
             <ModernDashboard 
               activeProject={activeProject}
@@ -163,7 +173,7 @@ export default function ModernDashboardPage() {
           
           {activeTab === "error-analysis" && activeProject && (
             <div className="p-8">
-              <ErrorDetails project={activeProject} />
+              <ErrorDetails testCases={testCases} />
             </div>
           )}
           

@@ -40,15 +40,25 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
   // Calculate real metrics from test data
   const totalTests = testCases.length;
   const passedTests = testCases.filter(tc => tc.status === 'passed').length;
+  const failedTests = testCases.filter(tc => tc.status === 'failed').length;
   const testCoverage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
   const riskAssessment = analyses.find(a => a.type === 'risk_assessment');
   const overallRisk = riskAssessment?.results?.overallRisk || 'Unknown';
+  
+  // Calculate additional metrics
+  const criticalIssues = testCases.filter(tc => tc.status === 'failed' && tc.priority === 'high').length;
+  const completedAnalyses = analyses.filter(a => a.status === 'completed').length;
+  const totalAnalyses = analyses.length;
+  const analysisProgress = totalAnalyses > 0 ? Math.round((completedAnalyses / totalAnalyses) * 100) : 0;
   
   const metrics = {
     codeQuality: 85, // Based on analysis results
     testCoverage,
     riskLevel: overallRisk,
-    techDebt: 'Medium'
+    techDebt: 'Medium',
+    totalRecommendations: recommendations.length,
+    criticalIssues,
+    analysisProgress
   };
 
   // Generate recommendations based on test results
@@ -64,7 +74,7 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     {
       id: 'gen-2',
       title: "Address Failed Tests", 
-      description: `${totalTests - passedTests} test(s) are failing. Review and fix failing test cases.`,
+      description: `${failedTests} test(s) are failing. Review and fix failing test cases.`,
       category: "quality",
       priority: "immediate",
       actionable: true
@@ -84,11 +94,14 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
   console.log('ComprehensiveReport Data:', {
     totalTests,
     passedTests,
+    failedTests,
     testCoverage,
     overallRisk,
     analysesCount: analyses.length,
     recommendationsCount: recommendations.length,
-    generatedRecommendationsCount: generatedRecommendations.length
+    generatedRecommendationsCount: generatedRecommendations.length,
+    criticalIssues,
+    analysisProgress
   });
 
   // Group recommendations by priority

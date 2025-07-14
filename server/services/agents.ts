@@ -549,6 +549,7 @@ export class TestExecutionAgent extends BaseAgent {
 
 export class AgentOrchestrator {
   private agents: Map<string, BaseAgent> = new Map();
+  private timeoutHandles: Map<string, NodeJS.Timeout> = new Map();
 
   constructor() {
     this.registerAgent(new SupervisorAgent());
@@ -565,6 +566,14 @@ export class AgentOrchestrator {
 
   getAgent(type: string): BaseAgent | undefined {
     return this.agents.get(type);
+  }
+
+  // Clean up all timeouts to prevent memory leaks
+  cleanup() {
+    this.timeoutHandles.forEach((handle) => {
+      clearTimeout(handle);
+    });
+    this.timeoutHandles.clear();
   }
 
   async executeTestWorkflow(project: Project, testCases: any[]): Promise<any> {
@@ -589,6 +598,8 @@ export class AgentOrchestrator {
   }
 
   async executeWorkflow(project: Project): Promise<void> {
+    const workflowId = `workflow-${project.id}-${Date.now()}`;
+    
     try {
       console.log(`🚀 Starting workflow for project: ${project.name}`);
       
@@ -614,23 +625,28 @@ export class AgentOrchestrator {
       if (createdAnalyses[0]) {
         await storage.updateAnalysis(createdAnalyses[0].id, { status: 'running' });
         
-        // Simulate analysis work
+        // Simulate analysis work with timeout handle
+        const timeout1 = setTimeout(async () => {
+          const codeAnalysis = {
+            languages: { typescript: 75, javascript: 20, css: 3, html: 2 },
+            frameworks: ["React", "Express", "Drizzle ORM"],
+            complexity: { cyclomatic: 45, cognitive: 38 },
+            linesOfCode: 12450,
+            files: 187,
+            testCoverage: 45
+          };
+          
+          await storage.updateAnalysis(createdAnalyses[0].id, { 
+            status: 'completed',
+            results: codeAnalysis
+          });
+          console.log(`✅ Code analysis completed`);
+          
+          this.timeoutHandles.delete(`${workflowId}-1`);
+        }, 3000);
+        
+        this.timeoutHandles.set(`${workflowId}-1`, timeout1);
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        const codeAnalysis = {
-          languages: { typescript: 75, javascript: 20, css: 3, html: 2 },
-          frameworks: ["React", "Express", "Drizzle ORM"],
-          complexity: { cyclomatic: 45, cognitive: 38 },
-          linesOfCode: 12450,
-          files: 187,
-          testCoverage: 45
-        };
-        
-        await storage.updateAnalysis(createdAnalyses[0].id, { 
-          status: 'completed',
-          results: codeAnalysis
-        });
-        console.log(`✅ Code analysis completed`);
       }
 
       // Step 2: Architecture Review
@@ -638,20 +654,25 @@ export class AgentOrchestrator {
       if (createdAnalyses[1]) {
         await storage.updateAnalysis(createdAnalyses[1].id, { status: 'running' });
         
+        const timeout2 = setTimeout(async () => {
+          const architectureReview = {
+            patterns: ["Component Architecture", "REST API", "Database Layer"],
+            structure: ["Frontend SPA", "Backend API", "PostgreSQL Database"],
+            strengths: ["Modern stack", "Type safety", "Modular design"],
+            weaknesses: ["Limited error handling", "Missing tests"]
+          };
+          
+          await storage.updateAnalysis(createdAnalyses[1].id, { 
+            status: 'completed',
+            results: architectureReview
+          });
+          console.log(`✅ Architecture review completed`);
+          
+          this.timeoutHandles.delete(`${workflowId}-2`);
+        }, 2500);
+        
+        this.timeoutHandles.set(`${workflowId}-2`, timeout2);
         await new Promise(resolve => setTimeout(resolve, 2500));
-        
-        const architectureReview = {
-          patterns: ["Component Architecture", "REST API", "Database Layer"],
-          structure: ["Frontend SPA", "Backend API", "PostgreSQL Database"],
-          strengths: ["Modern stack", "Type safety", "Modular design"],
-          weaknesses: ["Limited error handling", "Missing tests"]
-        };
-        
-        await storage.updateAnalysis(createdAnalyses[1].id, { 
-          status: 'completed',
-          results: architectureReview
-        });
-        console.log(`✅ Architecture review completed`);
       }
 
       // Step 3: Risk Assessment
@@ -659,24 +680,29 @@ export class AgentOrchestrator {
       if (createdAnalyses[2]) {
         await storage.updateAnalysis(createdAnalyses[2].id, { status: 'running' });
         
+        const timeout3 = setTimeout(async () => {
+          const riskAssessment = {
+            securityRisks: [
+              { severity: 'medium', category: 'Authentication', description: 'Missing rate limiting' },
+              { severity: 'low', category: 'Dependencies', description: 'Some outdated packages' }
+            ],
+            performanceRisks: [
+              { severity: 'medium', area: 'Database', description: 'N+1 query potential' }
+            ],
+            overallRisk: 'medium'
+          };
+          
+          await storage.updateAnalysis(createdAnalyses[2].id, { 
+            status: 'completed',
+            results: riskAssessment
+          });
+          console.log(`✅ Risk assessment completed`);
+          
+          this.timeoutHandles.delete(`${workflowId}-3`);
+        }, 3500);
+        
+        this.timeoutHandles.set(`${workflowId}-3`, timeout3);
         await new Promise(resolve => setTimeout(resolve, 3500));
-        
-        const riskAssessment = {
-          securityRisks: [
-            { severity: 'medium', category: 'Authentication', description: 'Missing rate limiting' },
-            { severity: 'low', category: 'Dependencies', description: 'Some outdated packages' }
-          ],
-          performanceRisks: [
-            { severity: 'medium', area: 'Database', description: 'N+1 query potential' }
-          ],
-          overallRisk: 'medium'
-        };
-        
-        await storage.updateAnalysis(createdAnalyses[2].id, { 
-          status: 'completed',
-          results: riskAssessment
-        });
-        console.log(`✅ Risk assessment completed`);
       }
 
       // Step 4: Test Generation
@@ -684,27 +710,32 @@ export class AgentOrchestrator {
       if (createdAnalyses[3]) {
         await storage.updateAnalysis(createdAnalyses[3].id, { status: 'running' });
         
+        const timeout4 = setTimeout(async () => {
+          const testGeneration = {
+            testCases: [
+              { name: "User Authentication Test", type: "integration", priority: "high" },
+              { name: "API Endpoint Tests", type: "unit", priority: "high" },
+              { name: "UI Component Tests", type: "unit", priority: "medium" },
+              { name: "E2E User Flow Test", type: "e2e", priority: "high" }
+            ],
+            testStrategy: {
+              coverage: 75,
+              frameworks: ["Jest", "Playwright", "React Testing Library"],
+              approach: "TDD"
+            }
+          };
+          
+          await storage.updateAnalysis(createdAnalyses[3].id, { 
+            status: 'completed',
+            results: testGeneration
+          });
+          console.log(`✅ Test generation completed`);
+          
+          this.timeoutHandles.delete(`${workflowId}-4`);
+        }, 4000);
+        
+        this.timeoutHandles.set(`${workflowId}-4`, timeout4);
         await new Promise(resolve => setTimeout(resolve, 4000));
-        
-        const testGeneration = {
-          testCases: [
-            { name: "User Authentication Test", type: "integration", priority: "high" },
-            { name: "API Endpoint Tests", type: "unit", priority: "high" },
-            { name: "UI Component Tests", type: "unit", priority: "medium" },
-            { name: "E2E User Flow Test", type: "e2e", priority: "high" }
-          ],
-          testStrategy: {
-            coverage: 75,
-            frameworks: ["Jest", "Playwright", "React Testing Library"],
-            approach: "TDD"
-          }
-        };
-        
-        await storage.updateAnalysis(createdAnalyses[3].id, { 
-          status: 'completed',
-          results: testGeneration
-        });
-        console.log(`✅ Test generation completed`);
       }
 
       // Mark project as completed
@@ -714,9 +745,33 @@ export class AgentOrchestrator {
     } catch (error) {
       console.error(`❌ Workflow failed for project: ${project.name}`, error);
       await storage.updateProject(project.id, { analysisStatus: 'failed' });
+      
+      // Clean up any remaining timeouts for this workflow
+      this.timeoutHandles.forEach((handle, key) => {
+        if (key.startsWith(workflowId)) {
+          clearTimeout(handle);
+          this.timeoutHandles.delete(key);
+        }
+      });
+      
       throw error;
     }
   }
 }
 
 export const agentOrchestrator = new AgentOrchestrator();
+
+// Cleanup on process exit to prevent memory leaks
+process.on('exit', () => {
+  agentOrchestrator.cleanup();
+});
+
+process.on('SIGINT', () => {
+  agentOrchestrator.cleanup();
+  process.exit();
+});
+
+process.on('SIGTERM', () => {
+  agentOrchestrator.cleanup();
+  process.exit();
+});
