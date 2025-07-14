@@ -10,6 +10,7 @@ import { googleDriveService } from "./services/google-drive-integration";
 import { jiraService } from "./services/jira-integration";
 import { githubService } from "./services/github-integration";
 import { mlTestingIntelligence } from "./services/ml-testing-intelligence";
+import aiTestingRoutes from "./routes-ai-testing";
 import multer from "multer";
 import { z } from "zod";
 
@@ -62,6 +63,9 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Register AI testing routes (AI Code Review & Visual Regression Testing)
+  app.use(aiTestingRoutes);
   
   // Get all projects
   app.get("/api/projects", async (req, res) => {

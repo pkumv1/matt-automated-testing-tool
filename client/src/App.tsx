@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import ModernDashboardPage from "@/pages/modern-dashboard-page";
+import ProjectDetail from "@/pages/project-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/modern" component={ModernDashboardPage} />
       <Route path="/legacy" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/projects/:id" component={ProjectDetail} />
       <Route component={NotFound} />
     </Switch>
   );
