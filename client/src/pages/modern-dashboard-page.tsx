@@ -15,6 +15,7 @@ import ErrorDetails from "@/components/error-details";
 import ProductionDeployment from "@/components/production-deployment";
 import ProjectsManagement from "@/components/projects-management";
 import AutomatedTestCreation from "@/components/automated-test-creation";
+import MLTestInsights from "@/components/ml-test-insights";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +151,12 @@ export default function ModernDashboardPage() {
           {activeTab === "test-generation" && activeProject && (
             <div className="p-8">
               <TestGeneration project={activeProject} />
+            </div>
+          )}
+          
+          {activeTab === "ml-insights" && activeProject && (
+            <div className="p-8">
+              <MLTestInsights project={activeProject} />
             </div>
           )}
           

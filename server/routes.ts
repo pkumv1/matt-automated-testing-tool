@@ -9,6 +9,7 @@ import { multiPlatformTestingService } from "./services/multi-platform-testing";
 import { googleDriveService } from "./services/google-drive-integration";
 import { jiraService } from "./services/jira-integration";
 import { githubService } from "./services/github-integration";
+import { mlTestingIntelligence } from "./services/ml-testing-intelligence";
 import multer from "multer";
 import { z } from "zod";
 
@@ -268,6 +269,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recommendations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // ML Intelligence Endpoints
+  
+  // Get ML-based risk scores
+  app.get("/api/projects/:id/ml/risk-scores", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const riskScores = await mlTestingIntelligence.calculateRiskScores(projectId);
+      res.json(riskScores);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to calculate risk scores" });
+    }
+  });
+
+  // Smart test selection based on code changes
+  app.post("/api/projects/:id/ml/smart-test-selection", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const { changedFiles } = req.body;
+      
+      if (!changedFiles || !Array.isArray(changedFiles)) {
+        return res.status(400).json({ message: "Changed files array is required" });
+      }
+      
+      const impact = await mlTestingIntelligence.selectTestsForCodeChanges(projectId, changedFiles);
+      res.json(impact);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to perform smart test selection" });
+    }
+  });
+
+  // Predict test failures
+  app.get("/api/projects/:id/ml/failure-predictions", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const predictions = await mlTestingIntelligence.predictTestFailures(projectId);
+      res.json(predictions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to predict test failures" });
+    }
+  });
+
+  // Get optimal test execution order
+  app.post("/api/projects/:id/ml/optimal-test-order", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const { testCaseIds } = req.body;
+      
+      const optimalOrder = await mlTestingIntelligence.optimizeTestExecutionOrder(projectId, testCaseIds);
+      res.json(optimalOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to optimize test execution order" });
+    }
+  });
+
+  // Record test execution result for ML learning
+  app.post("/api/test-cases/:id/ml/record-execution", async (req, res) => {
+    try {
+      const testCaseId = parseInt(req.params.id);
+      const { testName, result, duration, errorType, codeChanges } = req.body;
+      
+      await mlTestingIntelligence.recordTestExecution(
+        testCaseId,
+        testName,
+        result,
+        duration,
+        errorType,
+        codeChanges
+      );
+      
+      res.json({ message: "Test execution recorded for ML analysis" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to record test execution" });
     }
   });
 
