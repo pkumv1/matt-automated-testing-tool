@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   Home, Bot, BarChart3, TestTube, Bug, FileText, Rocket, 
-  Settings, Menu, X, Activity, Shield, Zap, Monitor, FolderOpen
+  Settings, Menu, X, Activity, Shield, Zap, Monitor, FolderOpen, Brain
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 
@@ -38,6 +38,7 @@ export default function ModernSidebar({
     { id: "acquisition", label: "Code Acquisition", icon: FileText, color: "text-gray-600" },
     { id: "analysis", label: "Analysis", icon: BarChart3, color: "text-green-600" },
     { id: "test-generation", label: "Test Generation", icon: TestTube, color: "text-orange-600" },
+    { id: "ml-insights", label: "ML Intelligence", icon: Brain, color: "text-purple-600" },
     { id: "automated-tests", label: "Automated Tests", icon: Zap, color: "text-purple-600" },
     { id: "test-results", label: "Test Results", icon: Activity, color: "text-blue-600" },
     { id: "logs", label: "Logs", icon: Monitor, color: "text-gray-600" },
