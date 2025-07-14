@@ -1,8 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic } from "./vite";
 import { ENV, validateEnvironment, initializeDirectories, checkServiceConnections } from "./config";
+import { logger } from "./logger";
+import { requestLogger, errorLogger, slowQueryLogger } from "./middleware/logging";
 
 // Print startup banner
 console.log(`
@@ -14,10 +16,16 @@ console.log(`
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
+// Log startup
+logger.info('🚀 Starting MATT application', {
+  environment: ENV.NODE_ENV,
+  nodeVersion: process.version,
+  pid: process.pid
+});
+
 // Validate environment and initialize
 if (!validateEnvironment()) {
-  console.error('\n⛔ Application startup failed due to environment configuration issues.');
-  console.error('Please fix the issues above and restart the application.\n');
+  logger.error('⛔ Application startup failed due to environment configuration issues');
   process.exit(1);
 }
 
@@ -44,74 +52,91 @@ app.use(session({
 app.use(express.json({ limit: ENV.MAX_FILE_SIZE }));
 app.use(express.urlencoded({ extended: false, limit: ENV.MAX_FILE_SIZE }));
 
-// Request logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+// Add comprehensive logging middleware
+app.use(requestLogger);
+app.use(slowQueryLogger(1000)); // Log requests taking more than 1 second
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+// Health check endpoint with database status
+app.get("/health", async (req, res) => {
+  try {
+    // Import db health check if available
+    const { checkDatabaseHealth } = await import("./db");
+    const dbHealth = typeof checkDatabaseHealth === 'function' ? await checkDatabaseHealth() : { status: 'unknown' };
+    
+    res.json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      environment: ENV.NODE_ENV,
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      services: {
+        database: dbHealth,
+        ai: !!ENV.ANTHROPIC_API_KEY
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    environment: ENV.NODE_ENV,
-    services: {
-      database: !!ENV.DATABASE_URL,
-      ai: !!ENV.ANTHROPIC_API_KEY
-    }
-  });
+    });
+  } catch (error) {
+    res.json({ 
+      status: "degraded", 
+      timestamp: new Date().toISOString(),
+      environment: ENV.NODE_ENV,
+      error: "Database check failed"
+    });
+  }
 });
 
 (async () => {
   try {
+    logger.info('📦 Registering routes...');
     const server = await registerRoutes(app);
 
-    // Global error handler
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // Add error logging middleware
+    app.use(errorLogger);
+
+    // Global error handler with comprehensive logging
+    app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
+      const requestId = (req as any).requestId || 'unknown';
 
-      console.error(`❌ Error: ${message}`, err.stack);
+      // Log error with full context
+      logger.logError(`Request ${requestId} failed`, err);
       
+      // Database-specific errors
+      if (err.code && typeof err.code === 'string') {
+        if (err.code.startsWith('22')) {
+          return res.status(400).json({ 
+            message: "Invalid data format",
+            code: err.code,
+            requestId
+          });
+        }
+        if (err.code === '23505') {
+          return res.status(409).json({ 
+            message: "Duplicate entry",
+            code: err.code,
+            requestId
+          });
+        }
+      }
+
       res.status(status).json({ 
         message,
-        ...(ENV.NODE_ENV === 'development' && { stack: err.stack })
+        requestId,
+        ...(ENV.NODE_ENV === 'development' && { 
+          stack: err.stack,
+          code: err.code,
+          details: err 
+        })
       });
     });
 
     // Setup Vite in development, serve static files in production
     if (app.get("env") === "development") {
       await setupVite(app, server);
-      log("Development mode: Vite middleware active");
+      logger.info("🔧 Development mode: Vite middleware active");
     } else {
       serveStatic(app);
-      log("Production mode: Serving static files");
+      logger.info("📦 Production mode: Serving static files");
     }
 
     // Start the server
@@ -121,12 +146,23 @@ app.get("/health", (req, res) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
+      logger.info('✅ Server started successfully', {
+        port,
+        environment: ENV.NODE_ENV,
+        urls: {
+          local: `http://localhost:${port}`,
+          network: `http://0.0.0.0:${port}`,
+          health: `http://localhost:${port}/health`
+        }
+      });
+
       console.log(`
 🚀 MATT is running!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌐 Local:      http://localhost:${port}
 🌐 Network:    http://0.0.0.0:${port}
 🌐 Health:     http://localhost:${port}/health
+📁 Logs:       ./logs/app-${new Date().toISOString().split('T')[0]}.log
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Environment:  ${ENV.NODE_ENV}
@@ -137,18 +173,23 @@ Press Ctrl+C to stop the server
       `);
     });
   } catch (error) {
-    console.error('❌ Failed to start application:', error);
+    logger.logError('❌ Failed to start application', error);
     process.exit(1);
   }
 })();
 
-// Graceful shutdown
+// Graceful shutdown with logging
 process.on('SIGTERM', () => {
-  console.log('\n📦 SIGTERM received, shutting down gracefully...');
+  logger.info('📦 SIGTERM received, shutting down gracefully...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('\n📦 SIGINT received, shutting down gracefully...');
+  logger.info('📦 SIGINT received, shutting down gracefully...');
   process.exit(0);
+});
+
+// Log process events
+process.on('warning', (warning) => {
+  logger.warn('Process warning', { warning });
 });
