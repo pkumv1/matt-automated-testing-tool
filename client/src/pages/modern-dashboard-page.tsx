@@ -29,8 +29,9 @@ export default function ModernDashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], refetch: refetchProjects } = useQuery({
     queryKey: ['/api/projects'],
+    refetchInterval: 5000, // Refetch every 5 seconds to ensure data is fresh
   });
 
   const { data: agents = [] } = useQuery({
@@ -43,9 +44,11 @@ export default function ModernDashboardPage() {
   });
 
   // Auto-select latest project but stay on dashboard
-  if (!activeProject && projects.length > 0 && activeTab === "dashboard" && !userClearedProject) {
-    setActiveProject(projects[0]);
-  }
+  useEffect(() => {
+    if (!activeProject && projects.length > 0 && activeTab === "dashboard" && !userClearedProject) {
+      setActiveProject(projects[0]);
+    }
+  }, [projects, activeProject, activeTab, userClearedProject]);
 
   // Cleanup query cache on unmount to prevent memory leaks
   useEffect(() => {
@@ -68,11 +71,13 @@ export default function ModernDashboardPage() {
     queryClient.invalidateQueries({ queryKey: ['/api/agents'] });
   };
 
-  const handleProjectCreated = (project: Project) => {
+  const handleProjectCreated = async (project: Project) => {
     clearProjectCache();
     setActiveProject(project);
     setActiveTab("analysis");
     setUserClearedProject(false);
+    // Force refetch to ensure the new project appears
+    await refetchProjects();
   };
 
   const handleProjectSelect = (project: Project) => {
@@ -93,6 +98,33 @@ export default function ModernDashboardPage() {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
   };
+
+  // Save current state to localStorage for persistence
+  useEffect(() => {
+    if (activeProject) {
+      localStorage.setItem('activeProjectId', activeProject.id.toString());
+    } else {
+      localStorage.removeItem('activeProjectId');
+    }
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeProject, activeTab]);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedProjectId = localStorage.getItem('activeProjectId');
+    const savedTab = localStorage.getItem('activeTab');
+    
+    if (savedTab) {
+      setActiveTab(savedTab);
+    }
+    
+    if (savedProjectId && projects.length > 0) {
+      const savedProject = projects.find(p => p.id === parseInt(savedProjectId));
+      if (savedProject) {
+        setActiveProject(savedProject);
+      }
+    }
+  }, [projects]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -198,7 +230,7 @@ export default function ModernDashboardPage() {
           
           {activeTab === "agents" && (
             <div className="p-8">
-              <AgentStatus />
+              <AgentStatus agents={agents} />
             </div>
           )}
         </main>
