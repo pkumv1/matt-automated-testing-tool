@@ -46,7 +46,9 @@ export default {
   projects: [
     {
       displayName: 'client',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'jsdom',
+      extensionsToTreatAsEsm: ['.ts', '.tsx'],
       testMatch: [
         '<rootDir>/__tests__/components/**/*.+(ts|tsx|js)',
         '<rootDir>/__tests__/setup/**/*.+(ts|tsx|js)',
@@ -65,11 +67,16 @@ export default {
           tsconfig: '<rootDir>/tsconfig.jest.json'
         }],
       },
+      transformIgnorePatterns: [
+        'node_modules/(?!(nanoid|@anthropic-ai|@langchain)/)'
+      ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
     {
       displayName: 'server',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'node',
+      extensionsToTreatAsEsm: ['.ts', '.tsx'],
       testMatch: [
         '<rootDir>/__tests__/api/**/*.+(ts|tsx|js)',
         '<rootDir>/__tests__/services/**/*.+(ts|tsx|js)',
@@ -89,6 +96,9 @@ export default {
           tsconfig: '<rootDir>/tsconfig.jest.json'
         }],
       },
+      transformIgnorePatterns: [
+        'node_modules/(?!(nanoid|@anthropic-ai|@langchain)/)'
+      ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     }
   ]
