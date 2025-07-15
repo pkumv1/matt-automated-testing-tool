@@ -35,6 +35,9 @@ async function initializationNode(state: ProductionWorkflowState): Promise<Parti
   
   const startTime = Date.now();
   
+  // Update project status to analyzing
+  await storage.updateProject(state.project.id, { analysisStatus: 'analyzing' });
+  
   // Initialize MCP agents for production deployment
   const mcpAgents = {
     active: [
@@ -180,6 +183,25 @@ async function enterpriseTestingNode(state: ProductionWorkflowState): Promise<Pa
       })
     );
 
+    // Create test_generation analysis record
+    await storage.createAnalysis({
+      projectId: state.project.id,
+      type: 'test_generation',
+      status: 'completed',
+      results: {
+        testCases: allTestCases.slice(0, 20).map(tc => ({
+          name: tc.name,
+          type: tc.category,
+          priority: tc.priority,
+          description: tc.description,
+          framework: tc.framework,
+          script: tc.script
+        })),
+        testStrategy: testSuite.testStrategy,
+        frameworks: testSuite.frameworks.map(f => f.name)
+      }
+    });
+
     // Update MCP agent status
     const updatedMcpAgents = {
       ...state.mcpAgents,
@@ -308,6 +330,10 @@ async function deploymentPrepNode(state: ProductionWorkflowState): Promise<Parti
     }
   };
 
+  // Update project status to completed
+  await storage.updateProject(state.project.id, { analysisStatus: 'completed' });
+  console.log(`[LangGraph Production] Updated project ${state.project.id} status to completed`);
+
   return {
     phase: 'completed',
     mcpAgents: mcpAgentsCompleted,
@@ -423,6 +449,7 @@ export class ProductionLangGraphWorkflow {
       console.log(`[LangGraph Production] Final metrics:`, result.metrics);
     } catch (error) {
       console.error(`[LangGraph Production] Workflow failed:`, error);
+      await storage.updateProject(project.id, { analysisStatus: 'failed' });
       throw error;
     }
   }

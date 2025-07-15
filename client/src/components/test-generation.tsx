@@ -16,7 +16,7 @@ interface TestGenerationProps {
 }
 
 export default function TestGeneration({ project }: TestGenerationProps) {
-  const [selectedFramework, setSelectedFramework] = useState("selenium");
+  const [selectedFramework, setSelectedFramework] = useState("comprehensive");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -196,7 +196,7 @@ export default function TestGeneration({ project }: TestGenerationProps) {
 
   const getFrameworkDisplayName = (framework: string) => {
     const names = {
-      comprehensive: "All Frameworks",
+      comprehensive: "All Frameworks - Recommended",
       jest: "Jest",
       playwright: "Playwright", 
       cypress: "Cypress",
@@ -246,8 +246,51 @@ export default function TestGeneration({ project }: TestGenerationProps) {
     );
   };
 
+  const getTestStrategyForFramework = (framework: string) => {
+    switch (framework) {
+      case 'comprehensive':
+        return {
+          unit: { status: testCases.length > 0 ? "Generated" : "Pending", count: unitTests.length, description: "test cases for components and utilities" },
+          integration: { status: testCases.length > 0 ? "Generated" : "Pending", count: integrationTests.length, description: "test cases for API endpoints" },
+          e2e: { status: testCases.length > 0 ? "Generated" : "Pending", count: e2eTests.length, description: "user journey scenarios" },
+          security: { status: testCases.length > 0 ? "Generated" : "Pending", count: securityTests.length, description: "security vulnerability tests" },
+          performance: { status: testCases.length > 0 ? "Generated" : "Pending", count: performanceTests.length, description: "performance and load tests" },
+          accessibility: { status: testCases.length > 0 ? "Generated" : "Pending", count: accessibilityTests.length, description: "accessibility compliance tests" }
+        };
+      case 'jest':
+        return {
+          unit: { status: "Ready", count: "-", description: "Unit test suite for components" },
+          integration: { status: "Ready", count: "-", description: "Integration tests for services" },
+          snapshot: { status: "Ready", count: "-", description: "Snapshot testing for UI" }
+        };
+      case 'playwright':
+        return {
+          e2e: { status: "Ready", count: "-", description: "End-to-end user flows" },
+          visual: { status: "Ready", count: "-", description: "Visual regression testing" },
+          accessibility: { status: "Ready", count: "-", description: "WCAG compliance checks" }
+        };
+      case 'owasp-zap':
+        return {
+          vulnerability: { status: "Ready", count: "-", description: "Vulnerability scanning" },
+          penetration: { status: "Ready", count: "-", description: "Penetration testing" },
+          compliance: { status: "Ready", count: "-", description: "Security compliance" }
+        };
+      case 'k6':
+        return {
+          load: { status: "Ready", count: "-", description: "Load testing scenarios" },
+          stress: { status: "Ready", count: "-", description: "Stress testing limits" },
+          performance: { status: "Ready", count: "-", description: "Performance benchmarks" }
+        };
+      default:
+        return {
+          tests: { status: "Ready", count: "-", description: `${framework} test suite` }
+        };
+    }
+  };
+
   const testAnalysis = getTestAnalysis();
   const isTestGenerated = testAnalysis?.status === 'completed';
+  const testStrategy = getTestStrategyForFramework(selectedFramework);
 
   return (
     <Card className="mb-8">
@@ -258,11 +301,11 @@ export default function TestGeneration({ project }: TestGenerationProps) {
           </h2>
           <div className="flex items-center space-x-3">
             <Select value={selectedFramework} onValueChange={setSelectedFramework}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-64">
                 <SelectValue placeholder="Select Framework" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="comprehensive">🚀 All Frameworks (Recommended)</SelectItem>
+                <SelectItem value="comprehensive">🚀 All Frameworks - Recommended</SelectItem>
                 <SelectItem value="jest">Jest - Unit & Integration</SelectItem>
                 <SelectItem value="playwright">Playwright - E2E & Visual</SelectItem>
                 <SelectItem value="cypress">Cypress - End-to-End</SelectItem>
@@ -318,41 +361,21 @@ export default function TestGeneration({ project }: TestGenerationProps) {
               Comprehensive Testing Strategy
             </h3>
             <div className="space-y-3">
-              <div className="p-3 bg-carbon-gray-10 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-carbon-gray-100">Unit Tests</h4>
-                  <Badge className={unitTests.length > 0 ? "bg-green-50 text-white" : "bg-carbon-gray-60 text-white"}>
-                    {unitTests.length > 0 ? "Generated" : "Pending"}
-                  </Badge>
+              {Object.entries(testStrategy).map(([key, value]) => (
+                <div key={key} className="p-3 bg-carbon-gray-10 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-carbon-gray-100">
+                      {key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')} Tests
+                    </h4>
+                    <Badge className={value.status === "Generated" ? "bg-green-50 text-white" : "bg-carbon-gray-60 text-white"}>
+                      {value.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-carbon-gray-60">
+                    {value.count !== "-" ? `${value.count} ` : ''}{value.description}
+                  </p>
                 </div>
-                <p className="text-xs text-carbon-gray-60">
-                  {unitTests.length} test cases for components and utilities
-                </p>
-              </div>
-
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-carbon-gray-100">Integration Tests</h4>
-                  <Badge className={integrationTests.length > 0 ? "bg-ibm-blue text-white" : "bg-carbon-gray-60 text-white"}>
-                    {integrationTests.length > 0 ? "Generated" : "Pending"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-carbon-gray-60">
-                  {integrationTests.length} test cases for API endpoints
-                </p>
-              </div>
-
-              <div className="p-3 bg-carbon-gray-10 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-carbon-gray-100">E2E Tests</h4>
-                  <Badge className={e2eTests.length > 0 ? "bg-green-50 text-white" : "bg-carbon-gray-60 text-white"}>
-                    {e2eTests.length > 0 ? "Generated" : "Pending"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-carbon-gray-60">
-                  {e2eTests.length} user journey scenarios
-                </p>
-              </div>
+              ))}
             </div>
           </div>
 
