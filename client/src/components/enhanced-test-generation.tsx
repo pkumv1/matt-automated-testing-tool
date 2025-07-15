@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +20,38 @@ interface EnhancedTestGenerationProps {
 
 export default function EnhancedTestGeneration({ project }: EnhancedTestGenerationProps) {
   const [selectedTestTypes, setSelectedTestTypes] = useState<string[]>([]);
+  const [actualTestCount, setActualTestCount] = useState(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: testCases = [] } = useQuery({
+  const { data: testCases = [], refetch: refetchTestCases } = useQuery({
     queryKey: [`/api/projects/${project.id}/test-cases`],
   });
+
+  // Calculate estimated test count based on selected categories
+  const calculateEstimatedTests = () => {
+    let total = 0;
+    selectedTestTypes.forEach(type => {
+      // Each category has different number of test cases
+      switch(type) {
+        case 'security':
+          total += 9; // 3 types x 3 tests each
+          break;
+        case 'functional':
+          total += 9; // 3 types x 3 tests each
+          break;
+        case 'nonFunctional':
+          total += 9; // 3 types x 3 tests each
+          break;
+        case 'specialized':
+          total += 12; // 4 types x 3 tests each
+          break;
+        default:
+          total += 6; // default estimate
+      }
+    });
+    return total;
+  };
 
   const downloadTestCases = () => {
     const testCaseContent = testCases.map(tc => {
@@ -126,13 +152,20 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       return response.json();
     },
     onSuccess: (data) => {
+      const generatedCount = data.testCases?.length || 0;
+      setActualTestCount(generatedCount);
+      
       toast({
         title: "Enhanced Test Suite Generated",
-        description: `Generated ${data.testCases?.length || 0} comprehensive test cases across ${selectedTestTypes.length} categories.`,
+        description: `Generated ${generatedCount} comprehensive test cases across ${selectedTestTypes.length} categories.`,
       });
+      
+      // Force refetch test cases
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}/test-cases`] });
+      refetchTestCases();
     },
     onError: (error) => {
+      console.error('Test generation error:', error);
       toast({
         title: "Test Generation Failed",
         description: error.message || "Failed to generate enhanced test suite. Please try again.",
@@ -140,6 +173,11 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       });
     }
   });
+
+  // Update actual test count when test cases change
+  useEffect(() => {
+    setActualTestCount(testCases.length);
+  }, [testCases]);
 
   const testCategories = {
     security: {
@@ -471,8 +509,8 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                     </div>
                   </div>
                   <div>
-                    <strong>Estimated Tests:</strong> {selectedTestTypes.length > 0 ? selectedTestTypes.length * 12 : 0}
-                    <p className="text-gray-600">Based on selected categories and comprehensive coverage</p>
+                    <strong>Estimated Tests:</strong> {calculateEstimatedTests()}
+                    <p className="text-gray-600">Based on selected categories and test types</p>
                   </div>
                   <div>
                     <strong>MCP Agents:</strong> {mcpAgents.length}
