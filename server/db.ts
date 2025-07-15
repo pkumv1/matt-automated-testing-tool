@@ -18,8 +18,16 @@ export const pool = new pg.Pool({
   connectionTimeoutMillis: 10000,
 });
 
+// Type for PostgreSQL errors
+interface PgError extends Error {
+  code?: string;
+  detail?: string;
+  table?: string;
+  constraint?: string;
+}
+
 // Test connection on startup
-pool.connect((err, client, release) => {
+pool.connect((err: PgError | null, client, release) => {
   if (err) {
     console.error('❌ Database connection failed:', err.message);
     console.error('Error code:', err.code);
@@ -48,7 +56,7 @@ pool.connect((err, client, release) => {
     console.log('✅ Database connected successfully');
     
     // Check if tables exist
-    client.query(`
+    client!.query(`
       SELECT tablename FROM pg_tables 
       WHERE schemaname = 'public' 
       ORDER BY tablename
@@ -74,7 +82,7 @@ pool.on('error', (err) => {
 // Log queries in development - FIXED VERSION
 if (ENV.NODE_ENV === 'development') {
   const originalQuery = pool.query.bind(pool);
-  pool.query = function(...args: any[]) {
+  pool.query = function(...args: any[]): any {
     // Handle different query formats
     let queryText = 'Unknown query';
     
