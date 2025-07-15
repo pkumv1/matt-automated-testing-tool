@@ -101,15 +101,16 @@ app.get("/health", async (req, res) => {
   
   try {
     // Import db health check if available
-    let dbHealth = { status: 'unknown', error: null };
+    let dbHealth: any = { status: 'unknown', error: null, details: null };
     try {
       const { checkDatabaseHealth } = await import("./db");
       if (typeof checkDatabaseHealth === 'function') {
-        dbHealth = await checkDatabaseHealth();
+        const dbResult = await checkDatabaseHealth();
+        dbHealth = { ...dbResult, error: dbResult.status === 'error' ? dbResult.details?.error || 'Database error' : null };
       }
     } catch (dbError: any) {
       logger.error('Database health check failed', { error: dbError.message }, 'HEALTH');
-      dbHealth = { status: 'error', error: dbError.message };
+      dbHealth = { status: 'error', error: dbError.message, details: null };
     }
     
     const healthStatus = {
