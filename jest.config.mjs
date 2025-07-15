@@ -22,6 +22,9 @@ export default {
     '^@/(.*)$': '<rootDir>/client/src/$1',
     '^@shared/(.*)$': '<rootDir>/shared/$1',
     '^@assets/(.*)$': '<rootDir>/client/src/assets/$1',
+    // Mock modules that use import.meta.url
+    '^.*/server/config$': '<rootDir>/__mocks__/server/config.ts',
+    '^.*/server/logger$': '<rootDir>/__mocks__/server/logger.ts'
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
