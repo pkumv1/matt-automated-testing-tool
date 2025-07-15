@@ -3,6 +3,10 @@ name: Fix Dependencies
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   fix-deps:
     runs-on: ubuntu-latest
@@ -10,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: fix-project-saving-and-test-counts
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,10 +32,26 @@ jobs:
       - name: Fresh install with new lock file
         run: npm install
         
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet package-lock.json; then
+            echo "No changes to package-lock.json"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "package-lock.json has changes"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
       - name: Commit updated lock file
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add package-lock.json
-          git commit -m "Update package-lock.json with fresh dependencies" || echo "No changes to commit"
-          git push origin fix-project-saving-and-test-counts
+          git commit -m "Update package-lock.json with fresh dependencies"
+          
+      - name: Push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:fix-project-saving-and-test-counts
