@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen, Save, Edit, X, Check } from "lucide-react";
+import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen, Save, Edit, X, Check, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
@@ -27,9 +27,17 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: projects = [], isLoading, refetch } = useQuery<Project[]>({
+  const { data: projects = [], isLoading, refetch, isRefetching } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
     refetchInterval: 10000, // Refetch every 10 seconds to ensure data is fresh
+    onError: (error) => {
+      console.error('Failed to fetch projects:', error);
+      toast({
+        title: "Error loading projects",
+        description: "Failed to load projects. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Auto-save functionality
@@ -65,8 +73,11 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       setHasUnsavedChanges(false);
+      setEditingId(null);
+      setEditForm({ name: "", description: "" });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Failed to update project:', error);
       toast({
         title: "Error",
         description: "Failed to update project. Please try again.",
@@ -129,6 +140,7 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
         throw new Error('Failed to delete project');
       }
     } catch (error) {
+      console.error('Failed to delete project:', error);
       toast({
         title: "Error",
         description: "Failed to delete project. Please try again.",
@@ -169,9 +181,25 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
     setHasUnsavedChanges(true);
   };
 
-  // Refresh projects when component mounts
+  const handleManualSave = (projectId: number) => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    handleSaveProject(projectId);
+  };
+
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+    await refetch();
+    toast({
+      title: "Projects refreshed",
+      description: "The project list has been updated.",
+    });
+  };
+
+  // Force refresh projects when component mounts
   useEffect(() => {
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
   }, []);
 
   if (isLoading) {
@@ -196,10 +224,12 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
             {projects.length} {projects.length === 1 ? 'Project' : 'Projects'}
           </Badge>
           <Button 
-            onClick={refetch}
+            onClick={handleRefresh}
             variant="outline"
             size="sm"
+            disabled={isRefetching}
           >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           {onNewProject && (
@@ -262,11 +292,26 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                                 placeholder="Project description"
                                 rows={2}
                               />
-                              {hasUnsavedChanges && (
-                                <p className="text-xs text-orange-600">
-                                  Auto-saving in 2 seconds...
-                                </p>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {hasUnsavedChanges && (
+                                  <p className="text-xs text-orange-600">
+                                    Auto-saving in 2 seconds...
+                                  </p>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleManualSave(project.id);
+                                  }}
+                                  disabled={updateProjectMutation.isPending || !hasUnsavedChanges}
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <Save className="w-3 h-3 mr-1" />
+                                  Save Now
+                                </Button>
+                              </div>
                             </div>
                           </>
                         ) : (
@@ -308,18 +353,6 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                       <div className="flex items-center gap-2 ml-4">
                         {editingId === project.id ? (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSaveProject(project.id);
-                              }}
-                              disabled={updateProjectMutation.isPending}
-                              className="text-green-600 hover:text-green-700"
-                            >
-                              <Save className="w-4 h-4" />
-                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
