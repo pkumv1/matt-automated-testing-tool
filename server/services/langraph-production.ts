@@ -52,14 +52,14 @@ async function initializationNode(state: ProductionWorkflowState): Promise<Parti
     ],
     results: {},
     status: {
-      'owasp-zap-security': 'idle',
-      'k6-performance': 'idle',
-      'playwright-e2e': 'idle',
-      'lighthouse-quality': 'idle',
-      'postman-api': 'idle',
-      'selenium-cross-browser': 'idle',
-      'jest-unit': 'idle',
-      'sonarqube-quality': 'idle'
+      'owasp-zap-security': 'idle' as const,
+      'k6-performance': 'idle' as const,
+      'playwright-e2e': 'idle' as const,
+      'lighthouse-quality': 'idle' as const,
+      'postman-api': 'idle' as const,
+      'selenium-cross-browser': 'idle' as const,
+      'jest-unit': 'idle' as const,
+      'sonarqube-quality': 'idle' as const
     }
   };
 
@@ -133,7 +133,7 @@ async function comprehensiveAnalysisNode(state: ProductionWorkflowState): Promis
         }
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[LangGraph Production] Analysis failed:', error);
     return {
       errors: [...state.errors, `Analysis failed: ${error.message}`]
@@ -207,10 +207,10 @@ async function enterpriseTestingNode(state: ProductionWorkflowState): Promise<Pa
       ...state.mcpAgents,
       status: {
         ...state.mcpAgents.status,
-        'owasp-zap-security': 'running',
-        'k6-performance': 'running',
-        'playwright-e2e': 'running',
-        'lighthouse-quality': 'running'
+        'owasp-zap-security': 'running' as const,
+        'k6-performance': 'running' as const,
+        'playwright-e2e': 'running' as const,
+        'lighthouse-quality': 'running' as const
       }
     };
 
@@ -227,7 +227,7 @@ async function enterpriseTestingNode(state: ProductionWorkflowState): Promise<Pa
         }
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[LangGraph Production] Testing failed:', error);
     return {
       errors: [...state.errors, `Testing failed: ${error.message}`]
@@ -309,14 +309,14 @@ async function deploymentPrepNode(state: ProductionWorkflowState): Promise<Parti
   const mcpAgentsCompleted = {
     ...state.mcpAgents,
     status: {
-      'owasp-zap-security': 'completed',
-      'k6-performance': 'completed',
-      'playwright-e2e': 'completed',
-      'lighthouse-quality': 'completed',
-      'postman-api': 'completed',
-      'selenium-cross-browser': 'completed',
-      'jest-unit': 'completed',
-      'sonarqube-quality': 'completed'
+      'owasp-zap-security': 'completed' as const,
+      'k6-performance': 'completed' as const,
+      'playwright-e2e': 'completed' as const,
+      'lighthouse-quality': 'completed' as const,
+      'postman-api': 'completed' as const,
+      'selenium-cross-browser': 'completed' as const,
+      'jest-unit': 'completed' as const,
+      'sonarqube-quality': 'completed' as const
     },
     results: {
       'owasp-zap-security': { vulnerabilities: 0, complianceScore: 95 },
@@ -374,6 +374,7 @@ async function analyzePerformanceRequirements(project: Project) {
 // Production LangGraph Workflow
 export class ProductionLangGraphWorkflow {
   private workflow: StateGraph<ProductionWorkflowState>;
+  private compiledWorkflow: any;
 
   constructor() {
     this.workflow = new StateGraph<ProductionWorkflowState>({
@@ -413,7 +414,7 @@ export class ProductionLangGraphWorkflow {
     this.workflow.addEdge("deployment_prep", END);
 
     // Compile workflow
-    this.workflow = this.workflow.compile();
+    this.compiledWorkflow = this.workflow.compile();
   }
 
   async execute(project: Project): Promise<void> {
@@ -444,7 +445,7 @@ export class ProductionLangGraphWorkflow {
     console.log(`[LangGraph Production] Starting workflow for project: ${project.name}`);
 
     try {
-      const result = await this.workflow.invoke(initialState);
+      const result = await this.compiledWorkflow.invoke(initialState);
       console.log(`[LangGraph Production] Workflow completed successfully`);
       console.log(`[LangGraph Production] Final metrics:`, result.metrics);
     } catch (error) {
