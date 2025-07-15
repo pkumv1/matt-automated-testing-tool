@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import os from "os";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { ENV, validateEnvironment, initializeDirectories, checkServiceConnections } from "./config";
@@ -25,9 +26,9 @@ logger.info('🚀 Starting MATT application', {
   pid: process.pid,
   platform: process.platform,
   arch: process.arch,
-  cpus: require('os').cpus().length,
-  totalMemory: `${Math.round(require('os').totalmem() / 1024 / 1024 / 1024)}GB`,
-  freeMemory: `${Math.round(require('os').freemem() / 1024 / 1024 / 1024)}GB`,
+  cpus: os.cpus().length,
+  totalMemory: `${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`,
+  freeMemory: `${Math.round(os.freemem() / 1024 / 1024 / 1024)}GB`,
   workingDirectory: process.cwd(),
   execPath: process.execPath,
   argv: process.argv,
