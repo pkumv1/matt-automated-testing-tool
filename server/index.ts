@@ -4,41 +4,65 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { ENV, validateEnvironment, initializeDirectories, checkServiceConnections } from "./config";
 import { logger } from "./logger";
-import { requestLogger, errorLogger, slowQueryLogger } from "./middleware/logging";
+import { requestLogger, errorLogger } from "./middleware/logging";
 
-// Print startup banner
+// Print startup banner with more details
+const startupTime = new Date().toISOString();
 console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
 ║     MATT - Modern Automated Testing Tool                     ║
 ║     Version 1.0.0                                           ║
+║     Started at: ${startupTime}                  ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
-// Log startup
+// Log startup with comprehensive system info
 logger.info('🚀 Starting MATT application', {
   environment: ENV.NODE_ENV,
   nodeVersion: process.version,
-  pid: process.pid
-});
+  pid: process.pid,
+  platform: process.platform,
+  arch: process.arch,
+  cpus: require('os').cpus().length,
+  totalMemory: `${Math.round(require('os').totalmem() / 1024 / 1024 / 1024)}GB`,
+  freeMemory: `${Math.round(require('os').freemem() / 1024 / 1024 / 1024)}GB`,
+  workingDirectory: process.cwd(),
+  execPath: process.execPath,
+  argv: process.argv,
+  env: {
+    NODE_ENV: ENV.NODE_ENV,
+    PORT: ENV.PORT,
+    DATABASE_CONFIGURED: !!ENV.DATABASE_URL,
+    AI_SERVICE_CONFIGURED: !!ENV.ANTHROPIC_API_KEY,
+    SESSION_SECRET_CONFIGURED: !!ENV.SESSION_SECRET
+  }
+}, 'STARTUP');
 
 // Validate environment and initialize
+logger.debug('Validating environment configuration', {}, 'STARTUP');
 if (!validateEnvironment()) {
-  logger.error('⛔ Application startup failed due to environment configuration issues');
-  process.exit(1);
+  logger.fatal('⛔ Application startup failed due to environment configuration issues', {
+    missingVars: Object.entries(ENV).filter(([key, value]) => !value && key !== 'NODE_ENV').map(([key]) => key)
+  }, 'STARTUP');
 }
 
-// Check service connections
+// Check service connections with detailed logging
+logger.info('Checking service connections', {}, 'STARTUP');
 checkServiceConnections();
 
 // Initialize required directories
+logger.info('Initializing required directories', {}, 'STARTUP');
 initializeDirectories();
 
 const app = express();
 
-// Session configuration
-app.use(session({
+// Log middleware setup
+logger.debug('Setting up Express middleware', {}, 'STARTUP');
+
+// Session configuration with logging
+const sessionConfig = {
   secret: ENV.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -47,49 +71,102 @@ app.use(session({
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
-}));
+};
 
+logger.debug('Session configuration', {
+  secure: sessionConfig.cookie.secure,
+  httpOnly: sessionConfig.cookie.httpOnly,
+  maxAge: sessionConfig.cookie.maxAge
+}, 'STARTUP');
+
+app.use(session(sessionConfig));
+
+// Body parser configuration with limits
 app.use(express.json({ limit: ENV.MAX_FILE_SIZE }));
 app.use(express.urlencoded({ extended: false, limit: ENV.MAX_FILE_SIZE }));
 
+logger.info('Middleware configured', {
+  maxFileSize: ENV.MAX_FILE_SIZE,
+  jsonLimit: ENV.MAX_FILE_SIZE,
+  urlencodedLimit: ENV.MAX_FILE_SIZE
+}, 'STARTUP');
+
 // Add comprehensive logging middleware
 app.use(requestLogger);
-app.use(slowQueryLogger(1000)); // Log requests taking more than 1 second
 
-// Health check endpoint with database status
+// Health check endpoint with detailed status
 app.get("/health", async (req, res) => {
+  const healthTimer = logger.startTimer('HEALTH_CHECK');
+  
   try {
     // Import db health check if available
-    const { checkDatabaseHealth } = await import("./db");
-    const dbHealth = typeof checkDatabaseHealth === 'function' ? await checkDatabaseHealth() : { status: 'unknown' };
+    let dbHealth = { status: 'unknown', error: null };
+    try {
+      const { checkDatabaseHealth } = await import("./db");
+      if (typeof checkDatabaseHealth === 'function') {
+        dbHealth = await checkDatabaseHealth();
+      }
+    } catch (dbError: any) {
+      logger.error('Database health check failed', { error: dbError.message }, 'HEALTH');
+      dbHealth = { status: 'error', error: dbError.message };
+    }
     
-    res.json({ 
-      status: "healthy", 
+    const healthStatus = {
+      status: dbHealth.status === 'healthy' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       environment: ENV.NODE_ENV,
       uptime: process.uptime(),
+      uptimeHuman: `${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`,
       memory: process.memoryUsage(),
+      memoryHuman: {
+        heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
+        rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`
+      },
+      cpu: process.cpuUsage(),
       services: {
         database: dbHealth,
-        ai: !!ENV.ANTHROPIC_API_KEY
-      }
-    });
-  } catch (error) {
-    res.json({ 
-      status: "degraded", 
+        ai: !!ENV.ANTHROPIC_API_KEY ? { status: 'configured' } : { status: 'not configured' }
+      },
+      version: '1.0.0',
+      pid: process.pid,
+      logFiles: logger.getLogFiles()
+    };
+    
+    logger.debug('Health check completed', { 
+      status: healthStatus.status,
+      dbStatus: dbHealth.status 
+    }, 'HEALTH');
+    
+    healthTimer.end({ status: healthStatus.status });
+    res.json(healthStatus);
+  } catch (error: any) {
+    healthTimer.end({ status: 'error', error: error.message });
+    logger.error('Health check failed', { error: error.message }, 'HEALTH');
+    
+    res.status(503).json({ 
+      status: "error", 
       timestamp: new Date().toISOString(),
       environment: ENV.NODE_ENV,
-      error: "Database check failed"
+      error: "Health check failed",
+      message: error.message
     });
   }
 });
 
 (async () => {
+  const appStartTimer = logger.startTimer('APP_INITIALIZATION');
+  
   try {
-    logger.info('📦 Registering routes...');
+    logger.info('📦 Registering routes...', {}, 'STARTUP');
+    const routeTimer = logger.startTimer('ROUTE_REGISTRATION');
+    
     const server = await registerRoutes(app);
+    
+    routeTimer.end({ success: true });
+    logger.info('✅ Routes registered successfully', {}, 'STARTUP');
 
-    // Add error logging middleware
+    // Add error logging middleware after routes
     app.use(errorLogger);
 
     // Global error handler with comprehensive logging
@@ -99,10 +176,30 @@ app.get("/health", async (req, res) => {
       const requestId = (req as any).requestId || 'unknown';
 
       // Log error with full context
-      logger.logError(`Request ${requestId} failed`, err);
+      logger.logError(`Request ${requestId} failed`, err, 'EXPRESS_ERROR_HANDLER');
+      
+      // Log additional error details
+      logger.debug('Error handler details', {
+        requestId,
+        url: req.url,
+        method: req.method,
+        headers: req.headers,
+        query: req.query,
+        params: req.params,
+        errorName: err.name,
+        errorCode: err.code,
+        errorStack: ENV.NODE_ENV === 'development' ? err.stack : undefined
+      }, 'EXPRESS_ERROR_HANDLER');
       
       // Database-specific errors
       if (err.code && typeof err.code === 'string') {
+        logger.warn('Database error detected', {
+          code: err.code,
+          detail: err.detail,
+          table: err.table,
+          constraint: err.constraint
+        }, 'DATABASE_ERROR');
+        
         if (err.code.startsWith('22')) {
           return res.status(400).json({ 
             message: "Invalid data format",
@@ -132,20 +229,30 @@ app.get("/health", async (req, res) => {
 
     // Setup Vite in development, serve static files in production
     if (app.get("env") === "development") {
+      logger.info('Setting up Vite development server', {}, 'STARTUP');
+      const viteTimer = logger.startTimer('VITE_SETUP');
+      
       await setupVite(app, server);
-      logger.info("🔧 Development mode: Vite middleware active");
+      
+      viteTimer.end({ success: true });
+      logger.info("🔧 Development mode: Vite middleware active", {}, 'STARTUP');
     } else {
+      logger.info('Setting up static file serving for production', {}, 'STARTUP');
       serveStatic(app);
-      logger.info("📦 Production mode: Serving static files");
+      logger.info("📦 Production mode: Serving static files", {}, 'STARTUP');
     }
 
     // Start the server
     const port = ENV.PORT;
+    logger.info('Starting HTTP server', { port }, 'STARTUP');
+    
     server.listen({
       port,
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
+      appStartTimer.end({ success: true, port });
+      
       logger.info('✅ Server started successfully', {
         port,
         environment: ENV.NODE_ENV,
@@ -153,8 +260,13 @@ app.get("/health", async (req, res) => {
           local: `http://localhost:${port}`,
           network: `http://0.0.0.0:${port}`,
           health: `http://localhost:${port}/health`
+        },
+        processInfo: {
+          pid: process.pid,
+          memory: process.memoryUsage(),
+          uptime: process.uptime()
         }
-      });
+      }, 'STARTUP');
 
       console.log(`
 🚀 MATT is running!
@@ -162,34 +274,102 @@ app.get("/health", async (req, res) => {
 🌐 Local:      http://localhost:${port}
 🌐 Network:    http://0.0.0.0:${port}
 🌐 Health:     http://localhost:${port}/health
-📁 Logs:       ./logs/app-${new Date().toISOString().split('T')[0]}.log
+📁 Logs:       ${logger.getLogFiles().all}
+📁 Error Log:  ${logger.getLogFiles().error}
+📁 Debug Log:  ${logger.getLogFiles().debug}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Environment:  ${ENV.NODE_ENV}
 Database:     ${ENV.DATABASE_URL ? '✅ Connected' : '❌ Not configured'}
 AI Service:   ${ENV.ANTHROPIC_API_KEY ? '✅ Ready' : '❌ Not configured'}
+Process ID:   ${process.pid}
 
 Press Ctrl+C to stop the server
       `);
     });
-  } catch (error) {
-    logger.logError('❌ Failed to start application', error);
-    process.exit(1);
+    
+    // Handle server errors
+    server.on('error', (error: any) => {
+      logger.logError('Server error occurred', error, 'SERVER_ERROR');
+      
+      if (error.code === 'EADDRINUSE') {
+        logger.fatal(`Port ${port} is already in use`, { port }, 'STARTUP');
+      } else if (error.code === 'EACCES') {
+        logger.fatal(`Permission denied to bind to port ${port}`, { port }, 'STARTUP');
+      } else {
+        logger.fatal('Failed to start server', { error: error.message }, 'STARTUP');
+      }
+    });
+    
+  } catch (error: any) {
+    appStartTimer.end({ success: false, error: error.message });
+    logger.logError('❌ Failed to start application', error, 'STARTUP');
+    logger.fatal('Application startup failed', {
+      error: error.message,
+      stack: error.stack
+    }, 'STARTUP');
   }
 })();
 
-// Graceful shutdown with logging
+// Graceful shutdown with detailed logging
 process.on('SIGTERM', () => {
-  logger.info('📦 SIGTERM received, shutting down gracefully...');
+  logger.info('📦 SIGTERM received, initiating graceful shutdown...', {
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  }, 'SHUTDOWN');
+  
+  // Cleanup timeouts
+  if (typeof (global as any).cleanupTimeouts === 'function') {
+    (global as any).cleanupTimeouts();
+  }
+  
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  logger.info('📦 SIGINT received, shutting down gracefully...');
+  logger.info('📦 SIGINT received, initiating graceful shutdown...', {
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  }, 'SHUTDOWN');
+  
+  // Cleanup timeouts
+  if (typeof (global as any).cleanupTimeouts === 'function') {
+    (global as any).cleanupTimeouts();
+  }
+  
   process.exit(0);
 });
 
 // Log process events
 process.on('warning', (warning) => {
-  logger.warn('Process warning', { warning });
+  logger.warn('Process warning detected', { 
+    name: warning.name,
+    message: warning.message,
+    stack: warning.stack 
+  }, 'PROCESS_WARNING');
 });
+
+// Monitor memory usage
+setInterval(() => {
+  const memUsage = process.memoryUsage();
+  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+  
+  if (heapUsedMB > 500) {
+    logger.warn('High memory usage detected', {
+      heapUsed: `${heapUsedMB}MB`,
+      heapTotal: `${heapTotalMB}MB`,
+      rss: `${rssMB}MB`,
+      heapPercentage: Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100)
+    }, 'MEMORY_MONITOR');
+  }
+  
+  // Log to performance file
+  logger.performance('MEMORY_USAGE', heapUsedMB, {
+    heapTotal: heapTotalMB,
+    rss: rssMB,
+    external: Math.round(memUsage.external / 1024 / 1024),
+    arrayBuffers: Math.round(memUsage.arrayBuffers / 1024 / 1024)
+  });
+}, 60000); // Check every minute
