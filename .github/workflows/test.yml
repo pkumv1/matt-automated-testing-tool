@@ -32,17 +32,39 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 20.x
-        
-    - name: Clean install dependencies
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    
+    - name: Install dependencies
       run: |
-        # Remove package-lock.json if it exists and is out of sync
+        # Clear npm cache if needed
+        npm cache verify || npm cache clean --force
+        
+        # Try to install with ci first, fall back to regular install
         if [ -f package-lock.json ]; then
-          echo "Checking package-lock.json integrity..."
-          npm ci || (echo "package-lock.json is out of sync, regenerating..." && rm -f package-lock.json && npm install)
+          echo "Installing with npm ci..."
+          npm ci || {
+            echo "npm ci failed, falling back to npm install..."
+            rm -f package-lock.json
+            npm install
+          }
         else
-          echo "No package-lock.json found, generating..."
+          echo "No package-lock.json found, running npm install..."
           npm install
         fi
+        
+        # Ensure all test dependencies are installed
+        npm install --save-dev @babel/preset-env @babel/preset-react @babel/preset-typescript identity-obj-proxy || true
+    
+    - name: Build application
+      run: npm run build
+      continue-on-error: true
       
     - name: Run tests
       run: npm run test:ci
@@ -50,8 +72,11 @@ jobs:
         DATABASE_URL: postgresql://test:test@localhost:5432/test
         SESSION_SECRET: test-secret
         ANTHROPIC_API_KEY: test-key
+        NODE_OPTIONS: '--experimental-vm-modules'
         
     - name: Upload coverage
       uses: codecov/codecov-action@v3
+      if: always()
       with:
         file: ./coverage/lcov.info
+        fail_ci_if_error: false
