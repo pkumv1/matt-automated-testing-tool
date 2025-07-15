@@ -33,8 +33,16 @@ jobs:
       with:
         node-version: 20.x
         
-    - name: Install dependencies
-      run: npm ci
+    - name: Clean install dependencies
+      run: |
+        # Remove package-lock.json if it exists and is out of sync
+        if [ -f package-lock.json ]; then
+          echo "Checking package-lock.json integrity..."
+          npm ci || (echo "package-lock.json is out of sync, regenerating..." && rm -f package-lock.json && npm install)
+        else
+          echo "No package-lock.json found, generating..."
+          npm install
+        fi
       
     - name: Run tests
       run: npm run test:ci
