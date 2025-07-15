@@ -11,14 +11,7 @@ export default {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       useESM: true,
-      tsconfig: {
-        jsx: 'react',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        target: 'ES2022',
-        module: 'ES2022',
-        moduleResolution: 'node'
-      }
+      tsconfig: '<rootDir>/tsconfig.jest.json'
     }],
   },
   transformIgnorePatterns: [
