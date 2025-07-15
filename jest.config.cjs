@@ -1,19 +1,38 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      tsconfig: {
+        jsx: 'react',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        target: 'ES2022',
+        module: 'ES2022'
+      }
+    }
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@/(.*)$': '<rootDir>/client/src/$1',
+    '^@shared/(.*)$': '<rootDir>/shared/$1',
+    '^@assets/(.*)$': '<rootDir>/client/src/assets/$1',
+  },
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      useESM: true,
+    }],
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(nanoid|@anthropic-ai|@langchain)/)'
+  ],
   roots: ['<rootDir>/__tests__', '<rootDir>/client', '<rootDir>/server'],
   testMatch: [
     '**/__tests__/**/*.+(ts|tsx|js)',
     '**/?(*.)+(spec|test).+(ts|tsx|js)'
   ],
-  transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest',
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/client/src/$1',
-    '^@shared/(.*)$': '<rootDir>/shared/$1',
-    '^@assets/(.*)$': '<rootDir>/client/src/assets/$1',
-  },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
@@ -32,18 +51,6 @@ module.exports = {
     }
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        jsx: 'react',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true
-      }
-    }
-  },
-  transformIgnorePatterns: [
-    'node_modules/(?!(nanoid|@anthropic-ai|@langchain)/)'
-  ],
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],
   }
