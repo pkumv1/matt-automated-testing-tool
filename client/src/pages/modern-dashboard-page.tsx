@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Plus, FolderOpen } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ModernDashboardPage() {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
@@ -28,10 +29,20 @@ export default function ModernDashboardPage() {
   const [userClearedProject, setUserClearedProject] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: projects = [], refetch: refetchProjects } = useQuery({
+  const { data: projects = [], refetch: refetchProjects, error: projectsError } = useQuery({
     queryKey: ['/api/projects'],
     refetchInterval: 5000, // Refetch every 5 seconds to ensure data is fresh
+    retry: 2, // Retry twice on failure
+    onError: (error) => {
+      console.error('Failed to fetch projects:', error);
+      toast({
+        title: "Error loading projects",
+        description: "Failed to load projects. Please refresh the page.",
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: agents = [] } = useQuery({
@@ -39,7 +50,7 @@ export default function ModernDashboardPage() {
   });
 
   const { data: testCases = [] } = useQuery({
-    queryKey: ['/api/projects', activeProject?.id, 'test-cases'],
+    queryKey: [`/api/projects/${activeProject?.id}/test-cases`],
     enabled: !!activeProject?.id,
   });
 
@@ -50,14 +61,10 @@ export default function ModernDashboardPage() {
     }
   }, [projects, activeProject, activeTab, userClearedProject]);
 
-  // Cleanup query cache on unmount to prevent memory leaks
+  // Force refresh projects on mount
   useEffect(() => {
-    return () => {
-      // Clear all project-related queries on component unmount
-      queryClient.removeQueries({ queryKey: ['/api/projects'] });
-      queryClient.removeQueries({ queryKey: ['/api/agents'] });
-    };
-  }, [queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+  }, []);
 
   // Clear cache when switching projects
   const clearProjectCache = (projectId?: number) => {
@@ -72,12 +79,23 @@ export default function ModernDashboardPage() {
   };
 
   const handleProjectCreated = async (project: Project) => {
-    clearProjectCache();
-    setActiveProject(project);
-    setActiveTab("analysis");
-    setUserClearedProject(false);
-    // Force refetch to ensure the new project appears
-    await refetchProjects();
+    try {
+      clearProjectCache();
+      // Force immediate refetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      await refetchProjects();
+      
+      setActiveProject(project);
+      setActiveTab("analysis");
+      setUserClearedProject(false);
+      
+      toast({
+        title: "Project created",
+        description: `${project.name} has been created successfully.`,
+      });
+    } catch (error) {
+      console.error('Error handling project creation:', error);
+    }
   };
 
   const handleProjectSelect = (project: Project) => {
@@ -97,6 +115,10 @@ export default function ModernDashboardPage() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Invalidate test cases when switching to automated tests tab
+    if (tab === "automated-tests" && activeProject) {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${activeProject.id}/test-cases`] });
+    }
   };
 
   // Save current state to localStorage for persistence
