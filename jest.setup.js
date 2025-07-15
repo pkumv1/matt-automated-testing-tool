@@ -11,15 +11,15 @@ if (typeof window !== 'undefined') {
   // Mock window.matchMedia
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: jest.fn().mockImplementation(query => ({
+    value: vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     })),
   });
 
@@ -39,8 +39,11 @@ process.env.SESSION_SECRET = 'test-secret';
 process.env.ANTHROPIC_API_KEY = 'test-api-key';
 
 // Mock console methods to reduce noise in tests
-global.console = {
-  ...console,
-  error: jest.fn(),
-  warn: jest.fn(),
-};
+// In ES modules, we need to check if jest is available
+if (typeof jest !== 'undefined') {
+  global.console = {
+    ...console,
+    error: jest.fn(),
+    warn: jest.fn(),
+  };
+}
