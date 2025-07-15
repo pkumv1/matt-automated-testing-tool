@@ -11,16 +11,16 @@ if (typeof window !== 'undefined') {
   // Mock window.matchMedia
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation(query => ({
+    value: () => ({
       matches: false,
-      media: query,
+      media: '',
       onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => {},
+    }),
   });
 
   // Mock IntersectionObserver
@@ -39,11 +39,10 @@ process.env.SESSION_SECRET = 'test-secret';
 process.env.ANTHROPIC_API_KEY = 'test-api-key';
 
 // Mock console methods to reduce noise in tests
-// In ES modules, we need to check if jest is available
-if (typeof jest !== 'undefined') {
-  global.console = {
-    ...console,
-    error: jest.fn(),
-    warn: jest.fn(),
-  };
-}
+// For ES modules, we'll use simple functions instead of jest.fn()
+const noop = () => {};
+global.console = {
+  ...console,
+  error: noop,
+  warn: noop,
+};
