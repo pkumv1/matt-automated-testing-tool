@@ -36,8 +36,15 @@ This PR addresses the three critical issues you mentioned:
 - Added actual test count tracking after generation
 - Force refetch test cases after generation
 
+## 4. CI/CD npm Dependency Issues
+**Problem**: The CI tests were failing due to package-lock.json being out of sync with dependencies.
+
+**Solution**:
+- Removed the winston logger dependency that was added without proper installation
+- Used the existing logger infrastructure in `server/logger.ts`
+- Added a GitHub Actions workflow (`fix-dependencies.yml`) to regenerate package-lock.json when needed
+
 ## Additional Improvements
-- Added comprehensive logging system (`server/utils/logger.ts`) for better error tracking
 - Enhanced error handling throughout the application
 - Added retry logic for failed API requests
 - Improved user feedback with toast notifications
@@ -47,6 +54,12 @@ This PR addresses the three critical issues you mentioned:
 2. Edit a project and verify auto-save works (shows "Auto-saving in 2 seconds...")
 3. Use the "Save Now" button to save immediately
 4. Generate tests in the Automated Tests tab and verify the estimated count matches the actual generated tests
-5. Check the logs directory for any errors if issues occur
+5. Check the application logs in the `logs/` directory for any errors
+
+## CI Fix Instructions
+If the CI continues to fail due to npm dependencies:
+1. Go to the Actions tab in GitHub
+2. Run the "Fix Dependencies" workflow manually
+3. This will regenerate the package-lock.json file with all correct dependencies
 
 All changes maintain backward compatibility and improve the overall reliability of the application.
