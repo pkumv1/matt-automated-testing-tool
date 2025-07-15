@@ -16,7 +16,11 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "test:deployment": "node test-deployment.js",
-    "clean": "rm -rf dist node_modules .turbo"
+    "diagnostics": "node diagnostics.js",
+    "logs:tail": "tail -f logs/app-*.log",
+    "logs:errors": "tail -f logs/error-*.log",
+    "logs:debug": "tail -f logs/debug-*.log",
+    "clean": "rm -rf dist node_modules .turbo logs/*.log"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
