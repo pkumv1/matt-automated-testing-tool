@@ -13,9 +13,10 @@ import type { Project, TestCase } from "@shared/schema";
 
 interface TestGenerationProps {
   project: Project;
+  onTestsGenerated?: () => void;
 }
 
-export default function TestGeneration({ project }: TestGenerationProps) {
+export default function TestGeneration({ project, onTestsGenerated }: TestGenerationProps) {
   const [selectedFramework, setSelectedFramework] = useState("comprehensive");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -77,6 +78,11 @@ export default function TestGeneration({ project }: TestGenerationProps) {
         description: "Test cases have been generated and are ready for execution.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'test-cases'] });
+      
+      // Call the callback if provided
+      if (onTestsGenerated) {
+        onTestsGenerated();
+      }
     },
     onError: () => {
       toast({

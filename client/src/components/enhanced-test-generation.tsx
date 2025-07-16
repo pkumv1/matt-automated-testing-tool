@@ -16,9 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface EnhancedTestGenerationProps {
   project: Project;
+  onScriptsGenerated?: () => void;
 }
 
-export default function EnhancedTestGeneration({ project }: EnhancedTestGenerationProps) {
+export default function EnhancedTestGeneration({ project, onScriptsGenerated }: EnhancedTestGenerationProps) {
   const [selectedTestTypes, setSelectedTestTypes] = useState<string[]>([]);
   const [estimatedTestCount, setEstimatedTestCount] = useState(0);
   const queryClient = useQueryClient();
@@ -150,6 +151,11 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}/test-cases`] });
       // Clear selection after successful generation
       setSelectedTestTypes([]);
+      
+      // Call the callback if provided
+      if (onScriptsGenerated) {
+        onScriptsGenerated();
+      }
     },
     onError: (error) => {
       toast({
@@ -354,7 +360,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Test Categories</TabsTrigger>
           <TabsTrigger value="agents">MCP Agents</TabsTrigger>
-          <TabsTrigger value="generation">Generate Tests</TabsTrigger>
+          <TabsTrigger value="generation">Generate Scripts</TabsTrigger>
           <TabsTrigger value="generated-tests">Generated Tests</TabsTrigger>
         </TabsList>
 
@@ -432,16 +438,16 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
           </Card>
         </TabsContent>
 
-        {/* Test Generation */}
+        {/* Test Script Generation */}
         <TabsContent value="generation" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Generate Comprehensive Test Suite</CardTitle>
+              <CardTitle>Generate Test Scripts</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Test Type Selection */}
               <div>
-                <h4 className="font-medium mb-4">Select Testing Categories</h4>
+                <h4 className="font-medium mb-4">Select Script Categories</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {Object.entries(testCategories).map(([key, category]) => {
                     const Icon = category.icon;
@@ -468,7 +474,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                             <h5 className="font-medium">{category.title}</h5>
                             <p className="text-sm text-gray-600">{category.description}</p>
                             <p className="text-xs text-gray-500 mt-1">
-                              ~{category.estimatedTests} tests
+                              ~{category.estimatedTests} scripts
                             </p>
                           </div>
                         </div>
@@ -480,7 +486,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
 
               {/* Generation Options */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Generation Options</h4>
+                <h4 className="font-medium mb-3">Script Generation Options</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
                     <strong>Selected Categories:</strong> {selectedTestTypes.length}
@@ -497,7 +503,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                     </div>
                   </div>
                   <div>
-                    <strong>Estimated Tests:</strong> {estimatedTestCount}
+                    <strong>Estimated Scripts:</strong> {estimatedTestCount}
                     <p className="text-gray-600">Based on selected categories</p>
                   </div>
                   <div>
@@ -511,10 +517,10 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                   <div className="mt-4 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <Info className="w-4 h-4 text-blue-600 mt-0.5" />
                     <div className="text-sm text-blue-800">
-                      <p className="font-medium">Note: Test Count Estimation</p>
+                      <p className="font-medium">Note: Script Count Estimation</p>
                       <p className="text-blue-700">
-                        The estimated count of {estimatedTestCount} tests is based on typical coverage for selected categories. 
-                        Actual generated tests may vary based on your project's complexity and analysis results.
+                        The estimated count of {estimatedTestCount} test scripts is based on typical coverage for selected categories. 
+                        Actual generated scripts may vary based on your project's complexity and test case requirements.
                       </p>
                     </div>
                   </div>
@@ -524,19 +530,19 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
               {/* Generate Button */}
               <div className="flex justify-center">
                 <Button 
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-3"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-3"
                   disabled={selectedTestTypes.length === 0 || generateEnhancedTestSuiteMutation.isPending}
                   onClick={() => generateEnhancedTestSuiteMutation.mutate()}
                 >
                   {generateEnhancedTestSuiteMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Suite...
+                      Generating Scripts...
                     </>
                   ) : (
                     <>
-                      <TestTube className="w-4 h-4 mr-2" />
-                      Generate Enhanced Test Suite
+                      <FileCode className="w-4 h-4 mr-2" />
+                      Generate Test Scripts
                     </>
                   )}
                 </Button>
