@@ -31,7 +31,7 @@ export default function ModernDashboardPage() {
 
   const { data: projects = [], refetch: refetchProjects } = useQuery({
     queryKey: ['/api/projects'],
-    refetchInterval: 5000, // Refetch every 5 seconds to ensure data is fresh
+    refetchInterval: 30000, // Reduced from 5 seconds to 30 seconds for better performance
   });
 
   const { data: agents = [] } = useQuery({
@@ -157,6 +157,7 @@ export default function ModernDashboardPage() {
               onProjectSelect={handleProjectSelect}
               onNewProject={handleNewProject}
               onStartAnalysis={() => setActiveTab("analysis")}
+              onTabChange={handleTabChange}
             />
           )}
           
