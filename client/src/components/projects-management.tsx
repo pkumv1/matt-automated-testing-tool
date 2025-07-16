@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen, Save, Edit, X, Check } from "lucide-react";
+import { Trash2, ExternalLink, Calendar, GitBranch, Activity, Plus, FolderOpen, Save, Edit, X, Check, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
@@ -23,14 +23,34 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: projects = [], isLoading, refetch } = useQuery<Project[]>({
+  const { data: projects = [], isLoading: isQueryLoading, refetch, error } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
     refetchInterval: 10000, // Refetch every 10 seconds to ensure data is fresh
+    retry: 3,
+    retryDelay: 1000,
   });
+
+  // Handle loading state
+  useEffect(() => {
+    setIsLoading(isQueryLoading);
+  }, [isQueryLoading]);
+
+  // Log errors for debugging
+  useEffect(() => {
+    if (error) {
+      console.error("Failed to fetch projects:", error);
+      toast({
+        title: "Error Loading Projects",
+        description: "Failed to load projects. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   // Auto-save functionality
   useEffect(() => {
@@ -56,17 +76,34 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
   const updateProjectMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Project> }) => {
       const response = await apiRequest("PATCH", `/api/projects/${id}`, data);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update project: ${response.statusText}`);
+      }
+      
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedProject) => {
       toast({
         title: "Project Updated",
         description: "Your changes have been saved successfully.",
       });
+      
+      // Update the cache immediately
+      queryClient.setQueryData(['/api/projects'], (oldData: Project[] | undefined) => {
+        if (!oldData) return [updatedProject];
+        return oldData.map(project => 
+          project.id === updatedProject.id ? updatedProject : project
+        );
+      });
+      
+      // Also invalidate to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       setHasUnsavedChanges(false);
+      setEditingId(null);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Failed to update project:", error);
       toast({
         title: "Error",
         description: "Failed to update project. Please try again.",
@@ -149,16 +186,35 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
   };
 
   const handleSaveProject = async (projectId: number) => {
+    if (!editForm.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Project name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateProjectMutation.mutate({
       id: projectId,
       data: {
-        name: editForm.name,
-        description: editForm.description,
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
       },
     });
   };
 
+  const handleManualSave = (projectId: number) => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    handleSaveProject(projectId);
+  };
+
   const handleCancelEdit = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
     setEditingId(null);
     setEditForm({ name: "", description: "" });
     setHasUnsavedChanges(false);
@@ -178,7 +234,10 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-center">Loading projects...</div>
+          <div className="flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            <span>Loading projects...</span>
+          </div>
         </CardContent>
       </Card>
     );
@@ -196,11 +255,16 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
             {projects.length} {projects.length === 1 ? 'Project' : 'Projects'}
           </Badge>
           <Button 
-            onClick={refetch}
+            onClick={() => refetch()}
             variant="outline"
             size="sm"
+            disabled={isQueryLoading}
           >
-            Refresh
+            {isQueryLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              "Refresh"
+            )}
           </Button>
           {onNewProject && (
             <Button 
@@ -313,9 +377,9 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSaveProject(project.id);
+                                handleManualSave(project.id);
                               }}
-                              disabled={updateProjectMutation.isPending}
+                              disabled={updateProjectMutation.isPending || !hasUnsavedChanges}
                               className="text-green-600 hover:text-green-700"
                             >
                               <Save className="w-4 h-4" />

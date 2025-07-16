@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import {
   Shield, Zap, Globe, Smartphone, Database, TestTube, 
   Bug, CheckCircle, Clock, AlertTriangle, Eye, Target,
   Users, Languages, Accessibility, Activity, Loader2,
-  Download, Copy, ExternalLink, FileCode
+  Download, Copy, ExternalLink, FileCode, Info
 } from "lucide-react";
 import type { Project, TestCase } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -20,12 +20,29 @@ interface EnhancedTestGenerationProps {
 
 export default function EnhancedTestGeneration({ project }: EnhancedTestGenerationProps) {
   const [selectedTestTypes, setSelectedTestTypes] = useState<string[]>([]);
+  const [estimatedTestCount, setEstimatedTestCount] = useState(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: testCases = [] } = useQuery({
+  const { data: testCases = [], isLoading: isLoadingTestCases } = useQuery({
     queryKey: [`/api/projects/${project.id}/test-cases`],
   });
+
+  // Calculate estimated test count when selection changes
+  useEffect(() => {
+    const testsPerCategory = {
+      security: 12,
+      functional: 15,
+      nonFunctional: 9,
+      specialized: 16
+    };
+    
+    const estimated = selectedTestTypes.reduce((total, type) => {
+      return total + (testsPerCategory[type] || 0);
+    }, 0);
+    
+    setEstimatedTestCount(estimated);
+  }, [selectedTestTypes]);
 
   const downloadTestCases = () => {
     const testCaseContent = testCases.map(tc => {
@@ -131,6 +148,8 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
         description: `Generated ${data.testCases?.length || 0} comprehensive test cases across ${selectedTestTypes.length} categories.`,
       });
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}/test-cases`] });
+      // Clear selection after successful generation
+      setSelectedTestTypes([]);
     },
     onError: (error) => {
       toast({
@@ -149,6 +168,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       border: 'border-red-200',
       title: 'Security Testing',
       description: 'Comprehensive security validation',
+      estimatedTests: 12,
       types: [
         {
           name: 'Vulnerability Testing',
@@ -177,6 +197,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       border: 'border-blue-200',
       title: 'Functional Testing',
       description: 'Core business logic validation',
+      estimatedTests: 15,
       types: [
         {
           name: 'Smoke Testing',
@@ -205,6 +226,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       border: 'border-yellow-200',
       title: 'Non-Functional Testing',
       description: 'Performance and usability validation',
+      estimatedTests: 9,
       types: [
         {
           name: 'Usability Testing',
@@ -233,6 +255,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
       border: 'border-purple-200',
       title: 'Specialized Testing',
       description: 'Domain-specific testing approaches',
+      estimatedTests: 16,
       types: [
         {
           name: 'API Testing',
@@ -302,7 +325,7 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.total}</div>
-            <div className="text-sm text-indigo-100">Total Tests</div>
+            <div className="text-sm text-indigo-100">Generated Tests</div>
           </div>
         </div>
 
@@ -441,9 +464,12 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                       >
                         <div className="flex items-center space-x-3">
                           <Icon className={`w-5 h-5 ${isSelected ? category.color : 'text-gray-400'}`} />
-                          <div>
+                          <div className="flex-1">
                             <h5 className="font-medium">{category.title}</h5>
                             <p className="text-sm text-gray-600">{category.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              ~{category.estimatedTests} tests
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -471,14 +497,28 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                     </div>
                   </div>
                   <div>
-                    <strong>Estimated Tests:</strong> {selectedTestTypes.length > 0 ? selectedTestTypes.length * 12 : 0}
-                    <p className="text-gray-600">Based on selected categories and comprehensive coverage</p>
+                    <strong>Estimated Tests:</strong> {estimatedTestCount}
+                    <p className="text-gray-600">Based on selected categories</p>
                   </div>
                   <div>
                     <strong>MCP Agents:</strong> {mcpAgents.length}
-                    <p className="text-gray-600">Advanced testing automation and execution</p>
+                    <p className="text-gray-600">Advanced testing automation</p>
                   </div>
                 </div>
+                
+                {/* Info banner */}
+                {estimatedTestCount > 0 && (
+                  <div className="mt-4 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Note: Test Count Estimation</p>
+                      <p className="text-blue-700">
+                        The estimated count of {estimatedTestCount} tests is based on typical coverage for selected categories. 
+                        Actual generated tests may vary based on your project's complexity and analysis results.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Generate Button */}
@@ -522,7 +562,12 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
               </div>
             </CardHeader>
             <CardContent>
-              {testCases.length === 0 ? (
+              {isLoadingTestCases ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  <span>Loading test cases...</span>
+                </div>
+              ) : testCases.length === 0 ? (
                 <div className="text-center py-8">
                   <TestTube className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No test cases generated yet</h3>
