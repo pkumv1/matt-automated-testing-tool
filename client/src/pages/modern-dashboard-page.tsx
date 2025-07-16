@@ -27,11 +27,19 @@ export default function ModernDashboardPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [userClearedProject, setUserClearedProject] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Add state to track workflow completion
+  const [workflowStatus, setWorkflowStatus] = useState({
+    projectCreated: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  });
   const queryClient = useQueryClient();
 
   const { data: projects = [], refetch: refetchProjects } = useQuery({
     queryKey: ['/api/projects'],
-    refetchInterval: 30000, // Reduced from 5 seconds to 30 seconds for better performance
+    refetchInterval: 30000,
   });
 
   const { data: agents = [] } = useQuery({
@@ -43,6 +51,34 @@ export default function ModernDashboardPage() {
     enabled: !!activeProject?.id,
   });
 
+  // Monitor project analysis status and redirect when complete
+  useEffect(() => {
+    if (activeProject && activeTab === "analysis") {
+      const checkAnalysisStatus = setInterval(() => {
+        queryClient.fetchQuery({
+          queryKey: [`/api/projects/${activeProject.id}`]
+        }).then((updatedProject: Project) => {
+          if (updatedProject.analysisStatus === 'completed') {
+            clearInterval(checkAnalysisStatus);
+            setWorkflowStatus(prev => ({ ...prev, analysisCompleted: true }));
+            // Redirect back to dashboard after analysis completes
+            setActiveTab("dashboard");
+            // Show success notification
+            const event = new CustomEvent('show-toast', {
+              detail: {
+                title: "Analysis Complete",
+                description: `Code analysis for ${activeProject.name} has been completed successfully.`
+              }
+            });
+            window.dispatchEvent(event);
+          }
+        });
+      }, 3000); // Check every 3 seconds
+
+      return () => clearInterval(checkAnalysisStatus);
+    }
+  }, [activeProject, activeTab, queryClient]);
+
   // Auto-select latest project but stay on dashboard
   useEffect(() => {
     if (!activeProject && projects.length > 0 && activeTab === "dashboard" && !userClearedProject) {
@@ -53,7 +89,6 @@ export default function ModernDashboardPage() {
   // Cleanup query cache on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
-      // Clear all project-related queries on component unmount
       queryClient.removeQueries({ queryKey: ['/api/projects'] });
       queryClient.removeQueries({ queryKey: ['/api/agents'] });
     };
@@ -74,10 +109,23 @@ export default function ModernDashboardPage() {
   const handleProjectCreated = async (project: Project) => {
     clearProjectCache();
     setActiveProject(project);
-    setActiveTab("analysis");
+    setWorkflowStatus(prev => ({ ...prev, projectCreated: true }));
     setUserClearedProject(false);
+    
+    // First go to analysis tab
+    setActiveTab("analysis");
+    
     // Force refetch to ensure the new project appears
     await refetchProjects();
+    
+    // Show notification
+    const event = new CustomEvent('show-toast', {
+      detail: {
+        title: "Project Created",
+        description: `${project.name} has been created. Starting code analysis...`
+      }
+    });
+    window.dispatchEvent(event);
   };
 
   const handleProjectSelect = (project: Project) => {
@@ -93,10 +141,31 @@ export default function ModernDashboardPage() {
     setActiveProject(null);
     setUserClearedProject(true);
     setActiveTab("acquisition");
+    // Reset workflow status
+    setWorkflowStatus({
+      projectCreated: false,
+      analysisCompleted: false,
+      testsGenerated: false,
+      scriptsGenerated: false,
+      testsRun: false
+    });
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  // Handle analysis completion
+  const handleAnalysisComplete = () => {
+    setWorkflowStatus(prev => ({ ...prev, analysisCompleted: true }));
+    setActiveTab("dashboard");
+    const event = new CustomEvent('show-toast', {
+      detail: {
+        title: "Analysis Complete",
+        description: "Redirecting to dashboard. You can now generate tests."
+      }
+    });
+    window.dispatchEvent(event);
   };
 
   // Save current state to localStorage for persistence
@@ -177,7 +246,10 @@ export default function ModernDashboardPage() {
           
           {activeTab === "analysis" && activeProject && (
             <div className="p-8">
-              <SimpleAnalysis project={activeProject} />
+              <SimpleAnalysis 
+                project={activeProject} 
+                onAnalysisComplete={handleAnalysisComplete}
+              />
             </div>
           )}
           
