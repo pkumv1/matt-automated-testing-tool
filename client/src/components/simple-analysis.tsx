@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,10 @@ import type { Project } from "@shared/schema";
 
 interface SimpleAnalysisProps {
   project: Project;
+  onAnalysisComplete?: () => void;
 }
 
-export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
+export default function SimpleAnalysis({ project, onAnalysisComplete }: SimpleAnalysisProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -37,11 +39,22 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
       console.log(`Received ${data.length} analyses for project ${project.id}`);
       return data;
     },
-    staleTime: 0, // Always consider data stale
-    cacheTime: 0, // Don't cache data
+    staleTime: 0,
+    cacheTime: 0,
     refetchInterval: (currentProject?.analysisStatus || project.analysisStatus) === 'analyzing' ? 3000 : false,
     enabled: !!project.id,
   });
+
+  // Monitor for analysis completion
+  useEffect(() => {
+    if (currentProject?.analysisStatus === 'completed' && onAnalysisComplete) {
+      // Give a slight delay to ensure UI updates are visible
+      const timer = setTimeout(() => {
+        onAnalysisComplete();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentProject?.analysisStatus, onAnalysisComplete]);
 
   // Mutation to start analysis
   const startAnalysisMutation = useMutation({
