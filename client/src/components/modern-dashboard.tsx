@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart3, TestTube, Shield, Zap, Activity, 
-  TrendingUp, Users, Clock, CheckCircle, AlertTriangle
+  TrendingUp, Users, Clock, CheckCircle, AlertTriangle,
+  Play, FileCode, Rocket
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 
@@ -18,6 +20,7 @@ interface ModernDashboardProps {
   onProjectSelect: (project: Project) => void;
   onNewProject: () => void;
   onStartAnalysis: () => void;
+  onTabChange?: (tab: string) => void;
 }
 
 export default function ModernDashboard({ 
@@ -27,8 +30,12 @@ export default function ModernDashboard({
   testCases,
   onProjectSelect, 
   onNewProject,
-  onStartAnalysis 
+  onStartAnalysis,
+  onTabChange 
 }: ModernDashboardProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const getProjectStats = () => {
     const total = projects.length;
     const completed = projects.filter(p => p.analysisStatus === 'completed').length;
@@ -96,6 +103,44 @@ export default function ModernDashboard({
       default: return Clock;
     }
   };
+
+  // Run test suite mutation
+  const runTestSuiteMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeProject) throw new Error("No project selected");
+      
+      const response = await fetch(`/api/projects/${activeProject.id}/run-test-suite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          framework: 'comprehensive',
+          testCaseIds: testCases.map(tc => tc.id)
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to run test suite');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Suite Started",
+        description: `Running ${testCases.length} test cases. Results will be available shortly.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-cases'] });
+    },
+    onError: () => {
+      toast({
+        title: "Test Suite Failed",
+        description: "Failed to start test suite execution. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="space-y-8 p-8">
@@ -210,6 +255,85 @@ export default function ModernDashboard({
           </div>
         </div>
       </div>
+
+      {/* NEW: Main Action Buttons - Prominent placement */}
+      {activeProject && (
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Testing Actions for: {activeProject.name}</span>
+              <Badge variant="outline" className="text-sm">
+                {activeProject.analysisStatus}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button 
+                size="lg" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  if (activeProject.analysisStatus !== 'completed') {
+                    toast({
+                      title: "Analysis not complete",
+                      description: "Please wait for the analysis to complete before generating tests.",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  onTabChange?.('test-generation');
+                }}
+              >
+                <TestTube className="w-5 h-5 mr-2" />
+                Generate Tests
+              </Button>
+              
+              <Button 
+                size="lg" 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => {
+                  if (activeProject.analysisStatus !== 'completed') {
+                    toast({
+                      title: "Analysis not complete",
+                      description: "Please wait for the analysis to complete before generating test scripts.",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  onTabChange?.('automated-tests');
+                }}
+              >
+                <FileCode className="w-5 h-5 mr-2" />
+                Generate Test Scripts
+              </Button>
+              
+              <Button 
+                size="lg" 
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => {
+                  if (testCases.length === 0) {
+                    toast({
+                      title: "No tests available",
+                      description: "Please generate tests first before running them.",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  runTestSuiteMutation.mutate();
+                }}
+                disabled={runTestSuiteMutation.isPending}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                {runTestSuiteMutation.isPending ? "Running..." : "Run Automated Tests"}
+              </Button>
+            </div>
+            
+            <p className="text-sm text-gray-600 mt-4 text-center">
+              Complete the workflow: Analyze → Generate Tests → Run Tests → View Results
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -329,23 +453,85 @@ export default function ModernDashboard({
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - Updated with new buttons */}
           <Card className="mt-6">
             <CardHeader>
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start" onClick={onStartAnalysis}>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => {
+                  if (!activeProject) {
+                    toast({
+                      title: "No project selected",
+                      description: "Please select or create a project first",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  onTabChange?.('test-generation');
+                }}
+              >
                 <TestTube className="w-4 h-4 mr-2" />
-                Run Demo Analysis
+                Generate Tests
               </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Shield className="w-4 h-4 mr-2" />
-                Security Scan
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => {
+                  if (!activeProject) {
+                    toast({
+                      title: "No project selected",
+                      description: "Please select or create a project first",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  onTabChange?.('automated-tests');
+                }}
+              >
+                <FileCode className="w-4 h-4 mr-2" />
+                Generate Test Scripts
               </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Performance Test
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => {
+                  if (!activeProject) {
+                    toast({
+                      title: "No project selected",
+                      description: "Please select or create a project first",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  if (testCases.length === 0) {
+                    toast({
+                      title: "No tests available",
+                      description: "Please generate tests first",
+                      variant: "default"
+                    });
+                    return;
+                  }
+                  runTestSuiteMutation.mutate();
+                }}
+                disabled={runTestSuiteMutation.isPending}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Run Automated Tests
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={onStartAnalysis}
+              >
+                <Rocket className="w-4 h-4 mr-2" />
+                Run Analysis
               </Button>
             </CardContent>
           </Card>
