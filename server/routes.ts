@@ -204,6 +204,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update project by ID
+  app.patch("/api/projects/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      // Verify project exists
+      const project = await storage.getProject(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Log the update for debugging
+      console.log(`Updating project ${id} with:`, updates);
+      
+      // Update the project
+      const updatedProject = await storage.updateProject(id, updates);
+      
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Failed to update project:", error);
+      res.status(500).json({ message: "Failed to update project" });
+    }
+  });
+
   // Delete project by ID
   app.delete("/api/projects/:id", async (req, res) => {
     try {
