@@ -25,6 +25,9 @@ const TIMEOUTS = {
 // Timeout management to prevent memory leaks
 const activeTimeouts = new Map<string, NodeJS.Timeout>();
 
+// In-memory storage for test runs (in production, this should be in database)
+const testRuns = new Map<number, any[]>();
+
 function createManagedTimeout(key: string, callback: () => void, delay: number): void {
   // Clear existing timeout if it exists
   if (activeTimeouts.has(key)) {
@@ -283,6 +286,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(testCases);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch test cases", error: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
+  // Get project test runs
+  app.get("/api/projects/:id/test-runs", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const projectTestRuns = testRuns.get(projectId) || [];
+      res.json(projectTestRuns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch test runs", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -954,8 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             duration: 5500,
             logs: ["✗ End-to-end test for citizen portal navigation and service access", "Executed via playwright MCP server using playwright"],
             screenshots: ["screenshot_3_failure.png"],
-            errors: ["Test failed: Element not found: [data-test=\"services-button\"]"]
-          },
+            errors: ["Test failed: Element not found: [data-test=\"services-button\"]"] },
           {
             testCaseId: 4,
             name: "Security Vulnerability Test",
@@ -1098,6 +1111,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Running test suite for project ${projectId} with ${framework}, test cases: ${testCaseIds}`);
       
+      // Create a new test run record
+      const testRun = {
+        id: `run-${Date.now()}`,
+        projectId,
+        framework,
+        startTime: new Date().toISOString(),
+        status: 'running',
+        testCaseIds,
+        results: []
+      };
+      
+      // Store test run
+      const projectRuns = testRuns.get(projectId) || [];
+      projectRuns.push(testRun);
+      testRuns.set(projectId, projectRuns);
+      
       // Update all test cases to running status
       for (const testCaseId of testCaseIds) {
         await storage.updateTestCase(testCaseId, { status: 'running' });
@@ -1106,20 +1135,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Simulate test suite execution
       setTimeout(async () => {
         try {
+          const results = [];
           for (const testCaseId of testCaseIds) {
             // Simulate individual test execution with realistic results
             const success = Math.random() > 0.25; // 75% success rate
-            await storage.updateTestCase(testCaseId, {
+            const result = {
+              testCaseId,
               status: success ? 'passed' : 'failed',
               executionTime: Math.floor(Math.random() * 5000) + 1000, // 1-6 seconds
-              results: success ? 
-                { passed: true, message: `Test executed successfully with ${framework}` } :
-                { passed: false, error: 'Test assertion failed', message: `Test failed during ${framework} execution` }
+              message: success ? 
+                `Test executed successfully with ${framework}` :
+                `Test failed during ${framework} execution`,
+              error: success ? null : 'Test assertion failed'
+            };
+            
+            results.push(result);
+            
+            await storage.updateTestCase(testCaseId, {
+              status: success ? 'passed' : 'failed',
+              executionTime: result.executionTime,
+              results: { passed: success, message: result.message, error: result.error }
             });
           }
+          
+          // Update test run record
+          testRun.status = 'completed';
+          testRun.endTime = new Date().toISOString();
+          testRun.results = results;
+          testRun.summary = {
+            total: results.length,
+            passed: results.filter(r => r.status === 'passed').length,
+            failed: results.filter(r => r.status === 'failed').length
+          };
+          
           console.log(`Test suite completed for project ${projectId}`);
         } catch (error) {
           console.error("Error during test suite execution:", error);
+          testRun.status = 'failed';
+          testRun.error = error.message;
         }
       }, 2000);
       
@@ -1127,7 +1180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Test suite execution started", 
         projectId,
         framework,
-        testCount: testCaseIds.length 
+        testCount: testCaseIds.length,
+        testRunId: testRun.id
       });
     } catch (error) {
       console.error("Test suite execution error:", error);
