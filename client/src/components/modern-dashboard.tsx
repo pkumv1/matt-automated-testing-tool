@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import WorkflowGuide from "@/components/workflow-guide";
 import { 
   BarChart3, TestTube, Shield, Zap, Activity, 
   TrendingUp, Users, Clock, CheckCircle, AlertTriangle,
@@ -35,6 +36,7 @@ export default function ModernDashboard({
 }: ModernDashboardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(true);
 
   const getProjectStats = () => {
     const total = projects.length;
@@ -141,6 +143,47 @@ export default function ModernDashboard({
       });
     },
   });
+
+  // Workflow guide handlers
+  const handleGenerateTests = () => {
+    if (activeProject?.analysisStatus !== 'completed') {
+      toast({
+        title: "Analysis not complete",
+        description: "Please wait for the analysis to complete before generating tests.",
+        variant: "default"
+      });
+      return;
+    }
+    onTabChange?.('test-generation');
+  };
+
+  const handleGenerateScripts = () => {
+    if (activeProject?.analysisStatus !== 'completed') {
+      toast({
+        title: "Analysis not complete",
+        description: "Please wait for the analysis to complete before generating test scripts.",
+        variant: "default"
+      });
+      return;
+    }
+    onTabChange?.('automated-tests');
+  };
+
+  const handleRunTests = () => {
+    if (testCases.length === 0) {
+      toast({
+        title: "No tests available",
+        description: "Please generate tests first before running them.",
+        variant: "default"
+      });
+      return;
+    }
+    runTestSuiteMutation.mutate();
+  };
+
+  const handleViewResults = () => {
+    onTabChange?.('test-results');
+  };
 
   return (
     <div className="space-y-8 p-8">
@@ -256,7 +299,22 @@ export default function ModernDashboard({
         </div>
       </div>
 
-      {/* NEW: Main Action Buttons - Prominent placement */}
+      {/* NEW: Workflow Guide - Show for new users or when requested */}
+      {(showWorkflowGuide || projects.length === 0) && (
+        <WorkflowGuide
+          activeProject={activeProject}
+          analysisStatus={activeProject?.analysisStatus}
+          testCasesCount={testCases.length}
+          onCreateProject={onNewProject}
+          onStartAnalysis={onStartAnalysis}
+          onGenerateTests={handleGenerateTests}
+          onGenerateScripts={handleGenerateScripts}
+          onRunTests={handleRunTests}
+          onViewResults={handleViewResults}
+        />
+      )}
+
+      {/* Main Action Buttons - Prominent placement */}
       {activeProject && (
         <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
           <CardHeader>
@@ -272,17 +330,7 @@ export default function ModernDashboard({
               <Button 
                 size="lg" 
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {
-                  if (activeProject.analysisStatus !== 'completed') {
-                    toast({
-                      title: "Analysis not complete",
-                      description: "Please wait for the analysis to complete before generating tests.",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  onTabChange?.('test-generation');
-                }}
+                onClick={handleGenerateTests}
               >
                 <TestTube className="w-5 h-5 mr-2" />
                 Generate Tests
@@ -291,17 +339,7 @@ export default function ModernDashboard({
               <Button 
                 size="lg" 
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => {
-                  if (activeProject.analysisStatus !== 'completed') {
-                    toast({
-                      title: "Analysis not complete",
-                      description: "Please wait for the analysis to complete before generating test scripts.",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  onTabChange?.('automated-tests');
-                }}
+                onClick={handleGenerateScripts}
               >
                 <FileCode className="w-5 h-5 mr-2" />
                 Generate Test Scripts
@@ -310,17 +348,7 @@ export default function ModernDashboard({
               <Button 
                 size="lg" 
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => {
-                  if (testCases.length === 0) {
-                    toast({
-                      title: "No tests available",
-                      description: "Please generate tests first before running them.",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  runTestSuiteMutation.mutate();
-                }}
+                onClick={handleRunTests}
                 disabled={runTestSuiteMutation.isPending}
               >
                 <Play className="w-5 h-5 mr-2" />
@@ -462,17 +490,7 @@ export default function ModernDashboard({
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 
-                onClick={() => {
-                  if (!activeProject) {
-                    toast({
-                      title: "No project selected",
-                      description: "Please select or create a project first",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  onTabChange?.('test-generation');
-                }}
+                onClick={handleGenerateTests}
               >
                 <TestTube className="w-4 h-4 mr-2" />
                 Generate Tests
@@ -481,17 +499,7 @@ export default function ModernDashboard({
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => {
-                  if (!activeProject) {
-                    toast({
-                      title: "No project selected",
-                      description: "Please select or create a project first",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  onTabChange?.('automated-tests');
-                }}
+                onClick={handleGenerateScripts}
               >
                 <FileCode className="w-4 h-4 mr-2" />
                 Generate Test Scripts
@@ -500,25 +508,7 @@ export default function ModernDashboard({
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => {
-                  if (!activeProject) {
-                    toast({
-                      title: "No project selected",
-                      description: "Please select or create a project first",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  if (testCases.length === 0) {
-                    toast({
-                      title: "No tests available",
-                      description: "Please generate tests first",
-                      variant: "default"
-                    });
-                    return;
-                  }
-                  runTestSuiteMutation.mutate();
-                }}
+                onClick={handleRunTests}
                 disabled={runTestSuiteMutation.isPending}
               >
                 <Play className="w-4 h-4 mr-2" />
@@ -535,6 +525,22 @@ export default function ModernDashboard({
               </Button>
             </CardContent>
           </Card>
+
+          {/* Toggle Workflow Guide */}
+          {projects.length > 0 && (
+            <Card className="mt-6">
+              <CardContent className="p-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowWorkflowGuide(!showWorkflowGuide)}
+                >
+                  {showWorkflowGuide ? "Hide" : "Show"} Workflow Guide
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
