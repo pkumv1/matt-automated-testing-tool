@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
   ArrowRight, CheckCircle, FileCode, Play, TestTube, 
-  Rocket, Target, Shield, Activity
+  Rocket, Target, Shield, Activity, Eye
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 
@@ -12,6 +12,13 @@ interface WorkflowGuideProps {
   activeProject: Project | null;
   analysisStatus?: string;
   testCasesCount: number;
+  workflowStatus?: {
+    projectCreated: boolean;
+    analysisCompleted: boolean;
+    testsGenerated: boolean;
+    scriptsGenerated: boolean;
+    testsRun: boolean;
+  };
   onCreateProject: () => void;
   onStartAnalysis: () => void;
   onGenerateTests: () => void;
@@ -24,6 +31,13 @@ export default function WorkflowGuide({
   activeProject,
   analysisStatus,
   testCasesCount,
+  workflowStatus = {
+    projectCreated: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  },
   onCreateProject,
   onStartAnalysis,
   onGenerateTests,
@@ -37,8 +51,8 @@ export default function WorkflowGuide({
       title: "Create Project",
       description: "Import your codebase from GitHub, Google Drive, or JIRA",
       icon: FileCode,
-      isComplete: !!activeProject,
-      isActive: !activeProject,
+      isComplete: workflowStatus.projectCreated,
+      isActive: !workflowStatus.projectCreated,
       action: onCreateProject,
       actionLabel: "Create Project"
     },
@@ -47,8 +61,8 @@ export default function WorkflowGuide({
       title: "Code Analysis",
       description: "AI agents analyze your code for risks and quality",
       icon: Activity,
-      isComplete: analysisStatus === 'completed',
-      isActive: !!activeProject && analysisStatus !== 'completed',
+      isComplete: workflowStatus.analysisCompleted,
+      isActive: workflowStatus.projectCreated && !workflowStatus.analysisCompleted,
       action: onStartAnalysis,
       actionLabel: "Start Analysis"
     },
@@ -57,8 +71,8 @@ export default function WorkflowGuide({
       title: "Generate Tests",
       description: "Create comprehensive test cases across multiple frameworks",
       icon: TestTube,
-      isComplete: testCasesCount > 0,
-      isActive: analysisStatus === 'completed' && testCasesCount === 0,
+      isComplete: workflowStatus.testsGenerated,
+      isActive: workflowStatus.analysisCompleted && !workflowStatus.testsGenerated,
       action: onGenerateTests,
       actionLabel: "Generate Tests"
     },
@@ -67,8 +81,8 @@ export default function WorkflowGuide({
       title: "Generate Scripts",
       description: "Create executable test scripts for all platforms",
       icon: FileCode,
-      isComplete: false, // This would need to be tracked separately
-      isActive: testCasesCount > 0,
+      isComplete: workflowStatus.scriptsGenerated,
+      isActive: workflowStatus.testsGenerated && !workflowStatus.scriptsGenerated,
       action: onGenerateScripts,
       actionLabel: "Generate Scripts"
     },
@@ -77,8 +91,8 @@ export default function WorkflowGuide({
       title: "Run Tests",
       description: "Execute tests using MCP agents across frameworks",
       icon: Play,
-      isComplete: false, // This would need to be tracked separately
-      isActive: testCasesCount > 0,
+      isComplete: workflowStatus.testsRun,
+      isActive: workflowStatus.scriptsGenerated && !workflowStatus.testsRun,
       action: onRunTests,
       actionLabel: "Run Tests"
     },
@@ -86,9 +100,9 @@ export default function WorkflowGuide({
       id: 6,
       title: "View Results",
       description: "Analyze test results and get recommendations",
-      icon: Target,
+      icon: Eye,
       isComplete: false,
-      isActive: false,
+      isActive: workflowStatus.testsRun,
       action: onViewResults,
       actionLabel: "View Results"
     }
@@ -130,7 +144,7 @@ export default function WorkflowGuide({
                     step.isComplete
                       ? 'border-green-500 bg-green-50'
                       : step.isActive
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 shadow-md'
                       : 'border-gray-200 bg-white'
                   }`}
                 >

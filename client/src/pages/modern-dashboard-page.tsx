@@ -27,7 +27,7 @@ export default function ModernDashboardPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [userClearedProject, setUserClearedProject] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Add state to track workflow completion
+  // Enhanced state to track workflow completion
   const [workflowStatus, setWorkflowStatus] = useState({
     projectCreated: false,
     analysisCompleted: false,
@@ -48,6 +48,12 @@ export default function ModernDashboardPage() {
 
   const { data: testCases = [] } = useQuery({
     queryKey: ['/api/projects', activeProject?.id, 'test-cases'],
+    enabled: !!activeProject?.id,
+  });
+
+  // Query for test runs
+  const { data: testRuns = [] } = useQuery({
+    queryKey: ['/api/projects', activeProject?.id, 'test-runs'],
     enabled: !!activeProject?.id,
   });
 
@@ -79,6 +85,20 @@ export default function ModernDashboardPage() {
     }
   }, [activeProject, activeTab, queryClient]);
 
+  // Update workflow status based on project data
+  useEffect(() => {
+    if (activeProject) {
+      setWorkflowStatus(prev => ({
+        ...prev,
+        projectCreated: true,
+        analysisCompleted: activeProject.analysisStatus === 'completed',
+        testsGenerated: testCases.length > 0,
+        scriptsGenerated: testCases.some((tc: any) => tc.scriptGenerated === true),
+        testsRun: testRuns.length > 0
+      }));
+    }
+  }, [activeProject, testCases, testRuns]);
+
   // Auto-select latest project but stay on dashboard
   useEffect(() => {
     if (!activeProject && projects.length > 0 && activeTab === "dashboard" && !userClearedProject) {
@@ -101,6 +121,7 @@ export default function ModernDashboardPage() {
       queryClient.removeQueries({ queryKey: [`/api/projects/${projectId}/analyses`] });
       queryClient.removeQueries({ queryKey: ['/api/projects', projectId, 'test-cases'] });
       queryClient.removeQueries({ queryKey: [`/api/projects/${projectId}/test-cases`] });
+      queryClient.removeQueries({ queryKey: ['/api/projects', projectId, 'test-runs'] });
     }
     queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
     queryClient.invalidateQueries({ queryKey: ['/api/agents'] });
@@ -168,6 +189,48 @@ export default function ModernDashboardPage() {
     window.dispatchEvent(event);
   };
 
+  // Handle test generation completion
+  const handleTestsGenerated = () => {
+    setWorkflowStatus(prev => ({ ...prev, testsGenerated: true }));
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-cases'] });
+    setActiveTab("dashboard");
+    const event = new CustomEvent('show-toast', {
+      detail: {
+        title: "Tests Generated",
+        description: "Test cases have been generated. You can now generate test scripts."
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
+  // Handle scripts generation completion
+  const handleScriptsGenerated = () => {
+    setWorkflowStatus(prev => ({ ...prev, scriptsGenerated: true }));
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-cases'] });
+    setActiveTab("dashboard");
+    const event = new CustomEvent('show-toast', {
+      detail: {
+        title: "Scripts Generated",
+        description: "Test scripts have been generated. You can now run the tests."
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
+  // Handle test run completion
+  const handleTestsRun = () => {
+    setWorkflowStatus(prev => ({ ...prev, testsRun: true }));
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-runs'] });
+    setActiveTab("dashboard");
+    const event = new CustomEvent('show-toast', {
+      detail: {
+        title: "Tests Executed",
+        description: "Test execution complete. View the results now."
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
   // Save current state to localStorage for persistence
   useEffect(() => {
     if (activeProject) {
@@ -176,15 +239,25 @@ export default function ModernDashboardPage() {
       localStorage.removeItem('activeProjectId');
     }
     localStorage.setItem('activeTab', activeTab);
-  }, [activeProject, activeTab]);
+    localStorage.setItem('workflowStatus', JSON.stringify(workflowStatus));
+  }, [activeProject, activeTab, workflowStatus]);
 
   // Load state from localStorage on mount
   useEffect(() => {
     const savedProjectId = localStorage.getItem('activeProjectId');
     const savedTab = localStorage.getItem('activeTab');
+    const savedWorkflowStatus = localStorage.getItem('workflowStatus');
     
     if (savedTab) {
       setActiveTab(savedTab);
+    }
+    
+    if (savedWorkflowStatus) {
+      try {
+        setWorkflowStatus(JSON.parse(savedWorkflowStatus));
+      } catch (e) {
+        console.error('Failed to parse workflow status', e);
+      }
     }
     
     if (savedProjectId && projects.length > 0) {
@@ -223,6 +296,7 @@ export default function ModernDashboardPage() {
               projects={projects}
               agents={agents}
               testCases={testCases}
+              workflowStatus={workflowStatus}
               onProjectSelect={handleProjectSelect}
               onNewProject={handleNewProject}
               onStartAnalysis={() => setActiveTab("analysis")}
@@ -255,7 +329,10 @@ export default function ModernDashboardPage() {
           
           {activeTab === "test-generation" && activeProject && (
             <div className="p-8">
-              <TestGeneration project={activeProject} />
+              <TestGeneration 
+                project={activeProject} 
+                onTestsGenerated={handleTestsGenerated}
+              />
             </div>
           )}
           
@@ -267,7 +344,10 @@ export default function ModernDashboardPage() {
           
           {activeTab === "automated-tests" && activeProject && (
             <div className="p-8">
-              <EnhancedTestGeneration project={activeProject} />
+              <EnhancedTestGeneration 
+                project={activeProject} 
+                onScriptsGenerated={handleScriptsGenerated}
+              />
             </div>
           )}
           

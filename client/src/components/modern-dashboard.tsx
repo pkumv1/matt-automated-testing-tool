@@ -9,7 +9,7 @@ import WorkflowGuide from "@/components/workflow-guide";
 import { 
   BarChart3, TestTube, Shield, Zap, Activity, 
   TrendingUp, Users, Clock, CheckCircle, AlertTriangle,
-  Play, FileCode, Rocket
+  Play, FileCode, Rocket, Eye
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 
@@ -18,6 +18,13 @@ interface ModernDashboardProps {
   projects: Project[];
   agents: any[];
   testCases: any[];
+  workflowStatus?: {
+    projectCreated: boolean;
+    analysisCompleted: boolean;
+    testsGenerated: boolean;
+    scriptsGenerated: boolean;
+    testsRun: boolean;
+  };
   onProjectSelect: (project: Project) => void;
   onNewProject: () => void;
   onStartAnalysis: () => void;
@@ -29,6 +36,13 @@ export default function ModernDashboard({
   projects, 
   agents,
   testCases,
+  workflowStatus = {
+    projectCreated: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  },
   onProjectSelect, 
   onNewProject,
   onStartAnalysis,
@@ -134,6 +148,7 @@ export default function ModernDashboard({
         description: `Running ${testCases.length} test cases. Results will be available shortly.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', activeProject?.id, 'test-runs'] });
     },
     onError: () => {
       toast({
@@ -146,7 +161,7 @@ export default function ModernDashboard({
 
   // Workflow guide handlers
   const handleGenerateTests = () => {
-    if (activeProject?.analysisStatus !== 'completed') {
+    if (!workflowStatus.analysisCompleted) {
       toast({
         title: "Analysis not complete",
         description: "Please wait for the analysis to complete before generating tests.",
@@ -158,10 +173,10 @@ export default function ModernDashboard({
   };
 
   const handleGenerateScripts = () => {
-    if (activeProject?.analysisStatus !== 'completed') {
+    if (!workflowStatus.testsGenerated) {
       toast({
-        title: "Analysis not complete",
-        description: "Please wait for the analysis to complete before generating test scripts.",
+        title: "Tests not generated",
+        description: "Please generate test cases first before creating test scripts.",
         variant: "default"
       });
       return;
@@ -170,10 +185,10 @@ export default function ModernDashboard({
   };
 
   const handleRunTests = () => {
-    if (testCases.length === 0) {
+    if (!workflowStatus.scriptsGenerated) {
       toast({
-        title: "No tests available",
-        description: "Please generate tests first before running them.",
+        title: "Scripts not generated",
+        description: "Please generate test scripts before running tests.",
         variant: "default"
       });
       return;
@@ -182,6 +197,14 @@ export default function ModernDashboard({
   };
 
   const handleViewResults = () => {
+    if (!workflowStatus.testsRun) {
+      toast({
+        title: "No test results",
+        description: "Please run tests first to view results.",
+        variant: "default"
+      });
+      return;
+    }
     onTabChange?.('test-results');
   };
 
@@ -305,6 +328,7 @@ export default function ModernDashboard({
           activeProject={activeProject}
           analysisStatus={activeProject?.analysisStatus}
           testCasesCount={testCases.length}
+          workflowStatus={workflowStatus}
           onCreateProject={onNewProject}
           onStartAnalysis={onStartAnalysis}
           onGenerateTests={handleGenerateTests}
@@ -326,39 +350,95 @@ export default function ModernDashboard({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Button 
                 size="lg" 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className={`w-full ${
+                  workflowStatus.analysisCompleted && !workflowStatus.testsGenerated
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : workflowStatus.testsGenerated
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
                 onClick={handleGenerateTests}
+                disabled={!workflowStatus.analysisCompleted}
               >
-                <TestTube className="w-5 h-5 mr-2" />
-                Generate Tests
+                {workflowStatus.testsGenerated ? (
+                  <><CheckCircle className="w-5 h-5 mr-2" /> Tests Generated</>
+                ) : (
+                  <><TestTube className="w-5 h-5 mr-2" /> Generate Tests</>
+                )}
               </Button>
               
               <Button 
                 size="lg" 
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                className={`w-full ${
+                  workflowStatus.testsGenerated && !workflowStatus.scriptsGenerated
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : workflowStatus.scriptsGenerated
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
                 onClick={handleGenerateScripts}
+                disabled={!workflowStatus.testsGenerated}
               >
-                <FileCode className="w-5 h-5 mr-2" />
-                Generate Test Scripts
+                {workflowStatus.scriptsGenerated ? (
+                  <><CheckCircle className="w-5 h-5 mr-2" /> Scripts Generated</>
+                ) : (
+                  <><FileCode className="w-5 h-5 mr-2" /> Generate Scripts</>
+                )}
               </Button>
               
               <Button 
                 size="lg" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className={`w-full ${
+                  workflowStatus.scriptsGenerated && !workflowStatus.testsRun
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : workflowStatus.testsRun
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
                 onClick={handleRunTests}
-                disabled={runTestSuiteMutation.isPending}
+                disabled={!workflowStatus.scriptsGenerated || runTestSuiteMutation.isPending}
               >
-                <Play className="w-5 h-5 mr-2" />
-                {runTestSuiteMutation.isPending ? "Running..." : "Run Automated Tests"}
+                {runTestSuiteMutation.isPending ? (
+                  <>Running...</>
+                ) : workflowStatus.testsRun ? (
+                  <><CheckCircle className="w-5 h-5 mr-2" /> Tests Complete</>
+                ) : (
+                  <><Play className="w-5 h-5 mr-2" /> Run Tests</>
+                )}
+              </Button>
+              
+              <Button 
+                size="lg" 
+                className={`w-full ${
+                  workflowStatus.testsRun
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                onClick={handleViewResults}
+                disabled={!workflowStatus.testsRun}
+              >
+                <Eye className="w-5 h-5 mr-2" />
+                View Results
               </Button>
             </div>
             
-            <p className="text-sm text-gray-600 mt-4 text-center">
-              Complete the workflow: Analyze → Generate Tests → Run Tests → View Results
-            </p>
+            <div className="mt-4">
+              <p className="text-sm text-gray-600 mb-2 text-center">
+                Workflow Progress
+              </p>
+              <Progress 
+                value={
+                  Object.values(workflowStatus).filter(Boolean).length * 20
+                } 
+                className="h-2"
+              />
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                {Object.values(workflowStatus).filter(Boolean).length} of 5 steps completed
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -491,6 +571,7 @@ export default function ModernDashboard({
                 variant="outline" 
                 className="w-full justify-start" 
                 onClick={handleGenerateTests}
+                disabled={!workflowStatus.analysisCompleted}
               >
                 <TestTube className="w-4 h-4 mr-2" />
                 Generate Tests
@@ -500,6 +581,7 @@ export default function ModernDashboard({
                 variant="outline" 
                 className="w-full justify-start"
                 onClick={handleGenerateScripts}
+                disabled={!workflowStatus.testsGenerated}
               >
                 <FileCode className="w-4 h-4 mr-2" />
                 Generate Test Scripts
@@ -509,7 +591,7 @@ export default function ModernDashboard({
                 variant="outline" 
                 className="w-full justify-start"
                 onClick={handleRunTests}
-                disabled={runTestSuiteMutation.isPending}
+                disabled={!workflowStatus.scriptsGenerated || runTestSuiteMutation.isPending}
               >
                 <Play className="w-4 h-4 mr-2" />
                 Run Automated Tests
