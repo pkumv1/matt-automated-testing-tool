@@ -22,6 +22,14 @@ interface ModernDashboardProps {
   onNewProject: () => void;
   onStartAnalysis: () => void;
   onTabChange?: (tab: string) => void;
+  workflowState?: {
+    projectCreated: boolean;
+    analysisStarted: boolean;
+    analysisCompleted: boolean;
+    testsGenerated: boolean;
+    scriptsGenerated: boolean;
+    testsRun: boolean;
+  };
 }
 
 export default function ModernDashboard({ 
@@ -32,7 +40,15 @@ export default function ModernDashboard({
   onProjectSelect, 
   onNewProject,
   onStartAnalysis,
-  onTabChange 
+  onTabChange,
+  workflowState = {
+    projectCreated: false,
+    analysisStarted: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  }
 }: ModernDashboardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -185,6 +201,16 @@ export default function ModernDashboard({
     onTabChange?.('test-results');
   };
 
+  // Update workflow state based on current project
+  const currentWorkflowState = {
+    ...workflowState,
+    projectCreated: !!activeProject,
+    analysisStarted: activeProject ? activeProject.analysisStatus !== 'pending' : false,
+    analysisCompleted: activeProject?.analysisStatus === 'completed',
+    testsGenerated: testCases.length > 0,
+    testsRun: testCases.some(tc => tc.status === 'passed' || tc.status === 'failed')
+  };
+
   return (
     <div className="space-y-8 p-8">
       {/* Welcome Section with MATT Graphic */}
@@ -311,6 +337,7 @@ export default function ModernDashboard({
           onGenerateScripts={handleGenerateScripts}
           onRunTests={handleRunTests}
           onViewResults={handleViewResults}
+          workflowState={currentWorkflowState}
         />
       )}
 

@@ -7,15 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Play, Check, Clock, AlertCircle, Loader2, Download, Eye } from "lucide-react";
+import { Play, Check, Clock, AlertCircle, Loader2, Download, Eye, ArrowLeft } from "lucide-react";
 import EnterpriseTestDashboard from "./enterprise-test-dashboard";
 import type { Project, TestCase } from "@shared/schema";
 
 interface TestGenerationProps {
   project: Project;
+  onTestsGenerated?: () => void;
+  onReturnToDashboard?: () => void;
 }
 
-export default function TestGeneration({ project }: TestGenerationProps) {
+export default function TestGeneration({ project, onTestsGenerated, onReturnToDashboard }: TestGenerationProps) {
   const [selectedFramework, setSelectedFramework] = useState("comprehensive");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -77,6 +79,10 @@ export default function TestGeneration({ project }: TestGenerationProps) {
         description: "Test cases have been generated and are ready for execution.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'test-cases'] });
+      // Call the callback to notify parent component
+      if (onTestsGenerated) {
+        onTestsGenerated();
+      }
     },
     onError: () => {
       toast({
@@ -300,6 +306,16 @@ export default function TestGeneration({ project }: TestGenerationProps) {
             Test Generation & Automation
           </h2>
           <div className="flex items-center space-x-3">
+            {onReturnToDashboard && (
+              <Button
+                onClick={onReturnToDashboard}
+                variant="outline"
+                size="sm"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            )}
             <Select value={selectedFramework} onValueChange={setSelectedFramework}>
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Select Framework" />

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Plus, FolderOpen } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
 
 export default function ModernDashboardPage() {
@@ -27,7 +28,16 @@ export default function ModernDashboardPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [userClearedProject, setUserClearedProject] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [workflowState, setWorkflowState] = useState({
+    projectCreated: false,
+    analysisStarted: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  });
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: projects = [], refetch: refetchProjects } = useQuery({
     queryKey: ['/api/projects'],
@@ -49,6 +59,21 @@ export default function ModernDashboardPage() {
       setActiveProject(projects[0]);
     }
   }, [projects, activeProject, activeTab, userClearedProject]);
+
+  // Monitor project status and redirect to dashboard when analysis completes
+  useEffect(() => {
+    if (activeProject && activeProject.analysisStatus === 'completed' && workflowState.analysisStarted && !workflowState.analysisCompleted) {
+      setWorkflowState(prev => ({ ...prev, analysisCompleted: true }));
+      toast({
+        title: "Analysis Completed",
+        description: "Code analysis has been completed successfully. You can now generate tests.",
+      });
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        setActiveTab("dashboard");
+      }, 1500);
+    }
+  }, [activeProject, workflowState.analysisStarted, workflowState.analysisCompleted, toast]);
 
   // Cleanup query cache on unmount to prevent memory leaks
   useEffect(() => {
@@ -74,10 +99,22 @@ export default function ModernDashboardPage() {
   const handleProjectCreated = async (project: Project) => {
     clearProjectCache();
     setActiveProject(project);
-    setActiveTab("analysis");
     setUserClearedProject(false);
+    setWorkflowState(prev => ({ ...prev, projectCreated: true, analysisStarted: true }));
+    
+    // Show success notification
+    toast({
+      title: "Project Created Successfully",
+      description: "Redirecting to dashboard. Analysis will start automatically.",
+    });
+    
     // Force refetch to ensure the new project appears
     await refetchProjects();
+    
+    // Redirect to dashboard after a short delay
+    setTimeout(() => {
+      setActiveTab("dashboard");
+    }, 1500);
   };
 
   const handleProjectSelect = (project: Project) => {
@@ -86,6 +123,15 @@ export default function ModernDashboardPage() {
     setActiveProject(project);
     setActiveTab("dashboard");
     setUserClearedProject(false);
+    // Update workflow state based on project status
+    setWorkflowState({
+      projectCreated: true,
+      analysisStarted: project.analysisStatus !== 'pending',
+      analysisCompleted: project.analysisStatus === 'completed',
+      testsGenerated: testCases.length > 0,
+      scriptsGenerated: false,
+      testsRun: testCases.some(tc => tc.status === 'passed' || tc.status === 'failed')
+    });
   };
 
   const handleNewProject = () => {
@@ -93,10 +139,42 @@ export default function ModernDashboardPage() {
     setActiveProject(null);
     setUserClearedProject(true);
     setActiveTab("acquisition");
+    setWorkflowState({
+      projectCreated: false,
+      analysisStarted: false,
+      analysisCompleted: false,
+      testsGenerated: false,
+      scriptsGenerated: false,
+      testsRun: false
+    });
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  const handleAnalysisStarted = () => {
+    setWorkflowState(prev => ({ ...prev, analysisStarted: true }));
+    toast({
+      title: "Analysis Started",
+      description: "Returning to dashboard. You'll be notified when analysis completes.",
+    });
+    // Redirect to dashboard
+    setTimeout(() => {
+      setActiveTab("dashboard");
+    }, 1500);
+  };
+
+  const handleTestsGenerated = () => {
+    setWorkflowState(prev => ({ ...prev, testsGenerated: true }));
+    toast({
+      title: "Tests Generated",
+      description: "Test cases have been created successfully.",
+    });
+    // Redirect to dashboard
+    setTimeout(() => {
+      setActiveTab("dashboard");
+    }, 1500);
   };
 
   // Save current state to localStorage for persistence
@@ -158,6 +236,7 @@ export default function ModernDashboardPage() {
               onNewProject={handleNewProject}
               onStartAnalysis={() => setActiveTab("analysis")}
               onTabChange={handleTabChange}
+              workflowState={workflowState}
             />
           )}
           
@@ -177,13 +256,21 @@ export default function ModernDashboardPage() {
           
           {activeTab === "analysis" && activeProject && (
             <div className="p-8">
-              <SimpleAnalysis project={activeProject} />
+              <SimpleAnalysis 
+                project={activeProject} 
+                onAnalysisStarted={handleAnalysisStarted}
+                onReturnToDashboard={() => setActiveTab("dashboard")}
+              />
             </div>
           )}
           
           {activeTab === "test-generation" && activeProject && (
             <div className="p-8">
-              <TestGeneration project={activeProject} />
+              <TestGeneration 
+                project={activeProject} 
+                onTestsGenerated={handleTestsGenerated}
+                onReturnToDashboard={() => setActiveTab("dashboard")}
+              />
             </div>
           )}
           

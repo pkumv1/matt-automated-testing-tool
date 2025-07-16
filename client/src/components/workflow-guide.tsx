@@ -18,6 +18,14 @@ interface WorkflowGuideProps {
   onGenerateScripts: () => void;
   onRunTests: () => void;
   onViewResults: () => void;
+  workflowState?: {
+    projectCreated: boolean;
+    analysisStarted: boolean;
+    analysisCompleted: boolean;
+    testsGenerated: boolean;
+    scriptsGenerated: boolean;
+    testsRun: boolean;
+  };
 }
 
 export default function WorkflowGuide({
@@ -29,7 +37,15 @@ export default function WorkflowGuide({
   onGenerateTests,
   onGenerateScripts,
   onRunTests,
-  onViewResults
+  onViewResults,
+  workflowState = {
+    projectCreated: false,
+    analysisStarted: false,
+    analysisCompleted: false,
+    testsGenerated: false,
+    scriptsGenerated: false,
+    testsRun: false
+  }
 }: WorkflowGuideProps) {
   const steps = [
     {
@@ -37,8 +53,8 @@ export default function WorkflowGuide({
       title: "Create Project",
       description: "Import your codebase from GitHub, Google Drive, or JIRA",
       icon: FileCode,
-      isComplete: !!activeProject,
-      isActive: !activeProject,
+      isComplete: workflowState.projectCreated || !!activeProject,
+      isActive: !activeProject && !workflowState.projectCreated,
       action: onCreateProject,
       actionLabel: "Create Project"
     },
@@ -47,8 +63,10 @@ export default function WorkflowGuide({
       title: "Code Analysis",
       description: "AI agents analyze your code for risks and quality",
       icon: Activity,
-      isComplete: analysisStatus === 'completed',
-      isActive: !!activeProject && analysisStatus !== 'completed',
+      isComplete: workflowState.analysisCompleted || analysisStatus === 'completed',
+      isActive: (workflowState.projectCreated || !!activeProject) && 
+                !workflowState.analysisCompleted && 
+                analysisStatus !== 'completed',
       action: onStartAnalysis,
       actionLabel: "Start Analysis"
     },
@@ -57,8 +75,10 @@ export default function WorkflowGuide({
       title: "Generate Tests",
       description: "Create comprehensive test cases across multiple frameworks",
       icon: TestTube,
-      isComplete: testCasesCount > 0,
-      isActive: analysisStatus === 'completed' && testCasesCount === 0,
+      isComplete: workflowState.testsGenerated || testCasesCount > 0,
+      isActive: (workflowState.analysisCompleted || analysisStatus === 'completed') && 
+                !workflowState.testsGenerated && 
+                testCasesCount === 0,
       action: onGenerateTests,
       actionLabel: "Generate Tests"
     },
@@ -67,8 +87,8 @@ export default function WorkflowGuide({
       title: "Generate Scripts",
       description: "Create executable test scripts for all platforms",
       icon: FileCode,
-      isComplete: false, // This would need to be tracked separately
-      isActive: testCasesCount > 0,
+      isComplete: workflowState.scriptsGenerated,
+      isActive: workflowState.testsGenerated || testCasesCount > 0,
       action: onGenerateScripts,
       actionLabel: "Generate Scripts"
     },
@@ -77,8 +97,8 @@ export default function WorkflowGuide({
       title: "Run Tests",
       description: "Execute tests using MCP agents across frameworks",
       icon: Play,
-      isComplete: false, // This would need to be tracked separately
-      isActive: testCasesCount > 0,
+      isComplete: workflowState.testsRun,
+      isActive: (workflowState.testsGenerated || testCasesCount > 0) && !workflowState.testsRun,
       action: onRunTests,
       actionLabel: "Run Tests"
     },
@@ -88,7 +108,7 @@ export default function WorkflowGuide({
       description: "Analyze test results and get recommendations",
       icon: Target,
       isComplete: false,
-      isActive: false,
+      isActive: workflowState.testsRun,
       action: onViewResults,
       actionLabel: "View Results"
     }

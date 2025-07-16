@@ -2,15 +2,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
 
 interface SimpleAnalysisProps {
   project: Project;
+  onAnalysisStarted?: () => void;
+  onReturnToDashboard?: () => void;
 }
 
-export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
+export default function SimpleAnalysis({ project, onAnalysisStarted, onReturnToDashboard }: SimpleAnalysisProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -66,6 +68,10 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
         refetch();
         queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       }, 1000);
+      // Call the callback to notify parent component
+      if (onAnalysisStarted) {
+        onAnalysisStarted();
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -150,6 +156,15 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Status
               </Button>
+              {onReturnToDashboard && (
+                <Button
+                  onClick={onReturnToDashboard}
+                  variant="outline"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -171,14 +186,26 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
               <p className="text-gray-600 mt-2">Analyzing {project.name}...</p>
               <p className="text-sm text-gray-500 mt-1">This may take a few minutes</p>
             </div>
-            <Button 
-              onClick={refreshData}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex justify-center gap-3">
+              <Button 
+                onClick={refreshData}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              {onReturnToDashboard && (
+                <Button
+                  onClick={onReturnToDashboard}
+                  variant="outline"
+                  size="sm"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -209,6 +236,15 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
               </Button>
+              {onReturnToDashboard && (
+                <Button
+                  onClick={onReturnToDashboard}
+                  variant="outline"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -226,14 +262,26 @@ export default function SimpleAnalysis({ project }: SimpleAnalysisProps) {
             {projectStatus}
           </Badge>
         </div>
-        <Button 
-          onClick={refreshData}
-          variant="outline"
-          size="sm"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={refreshData}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          {onReturnToDashboard && (
+            <Button
+              onClick={onReturnToDashboard}
+              variant="outline"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
