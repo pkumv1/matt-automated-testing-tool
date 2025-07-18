@@ -2,14 +2,22 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from "@shared/schema";
 import { ENV } from "./config";
+import { logger } from './logger';
 
 if (!ENV.DATABASE_URL) {
   console.error("❌ DATABASE_URL not found in environment variables");
   throw new Error("DATABASE_URL must be set");
 }
 
-console.log('🔄 Connecting to database...');
-console.log('📍 Database URL format:', ENV.DATABASE_URL.replace(/:([^@]+)@/, ':****@'));
+const sanitizedUrl = ENV.DATABASE_URL.replace(/:([^@]+)@/, ':****@');
+logger.info('🔄 Initializing database connection pool', {
+  url: sanitizedUrl,
+  poolConfig: {
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000
+  }
+}, 'DATABASE_INIT');
 
 export const pool = new pg.Pool({ 
   connectionString: ENV.DATABASE_URL,
@@ -27,33 +35,54 @@ interface PgError extends Error {
 }
 
 // Test connection on startup
+logger.info('🔌 Testing database connection...', {}, 'DATABASE_TEST');
 pool.connect((err: PgError | null, client, release) => {
   if (err) {
-    console.error('❌ Database connection failed:', err.message);
-    console.error('Error code:', err.code);
+    logger.logError('❌ Database connection failed', err, 'DATABASE_ERROR');
     
     // Provide specific guidance based on error
-    if (err.code === 'ECONNREFUSED') {
-      console.error('📍 PostgreSQL is not running or not accepting connections');
-      console.error('💡 Fix: sudo systemctl start postgresql');
-    } else if (err.code === 'ENOTFOUND') {
-      console.error('📍 Database host not found');
-      console.error('💡 Fix: Check DATABASE_URL host is correct (should be localhost or 127.0.0.1)');
-    } else if (err.code === '28P01') {
-      console.error('📍 Authentication failed - wrong username or password');
-      console.error('💡 Fix: Check username and password in DATABASE_URL');
-      console.error('💡 Note: Special characters must be URL encoded (@ = %40, # = %23)');
-    } else if (err.code === '3D000') {
-      console.error('📍 Database does not exist');
-      console.error('💡 Fix: Create database with: createdb postgres');
+    const errorMessages = {
+      'ECONNREFUSED': {
+        message: 'PostgreSQL is not running or not accepting connections',
+        fix: 'sudo systemctl start postgresql'
+      },
+      'ENOTFOUND': {
+        message: 'Database host not found',
+        fix: 'Check DATABASE_URL host is correct (should be localhost or 127.0.0.1)'
+      },
+      '28P01': {
+        message: 'Authentication failed - wrong username or password',
+        fix: 'Check username and password in DATABASE_URL'
+      },
+      '3D000': {
+        message: 'Database does not exist',
+        fix: 'Create database with: createdb postgres'
+      }
+    };
+
+    const errorInfo = errorMessages[err.code as keyof typeof errorMessages];
+    if (errorInfo) {
+      logger.error(`📍 ${errorInfo.message}`, { 
+        code: err.code,
+        fix: errorInfo.fix
+      }, 'DATABASE_ERROR');
     }
     
-    console.error('\n🔧 Troubleshooting steps:');
-    console.error('1. Test connection: psql "$DATABASE_URL"');
-    console.error('2. Check .env file: cat .env | grep DATABASE_URL');
-    console.error('3. Verify PostgreSQL: sudo systemctl status postgresql');
+    logger.error('🔧 Troubleshooting steps:', {
+      steps: [
+        'Test connection: psql "$DATABASE_URL"',
+        'Check .env file: cat .env | grep DATABASE_URL',
+        'Verify PostgreSQL: sudo systemctl status postgresql'
+      ]
+    }, 'DATABASE_TROUBLESHOOTING');
   } else {
-    console.log('✅ Database connected successfully');
+    logger.info('✅ Database connected successfully', {
+      poolStats: {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount
+      }
+    }, 'DATABASE_SUCCESS');
     
     // Check if tables exist
     client!.query(`
@@ -62,12 +91,17 @@ pool.connect((err: PgError | null, client, release) => {
       ORDER BY tablename
     `, (err, result) => {
       if (err) {
-        console.error('❌ Failed to check tables:', err.message);
+        logger.error('❌ Failed to check tables', { error: err.message }, 'DATABASE_TABLES');
       } else if (result.rows.length === 0) {
-        console.warn('⚠️  No tables found in database!');
-        console.warn('💡 Run: npm run db:push to create tables');
+        logger.warn('⚠️  No tables found in database!', {
+          suggestion: 'Run: npm run db:push to create tables'
+        }, 'DATABASE_TABLES');
       } else {
-        console.log('✅ Found tables:', result.rows.map(r => r.tablename).join(', '));
+        const tables = result.rows.map(r => r.tablename);
+        logger.info('✅ Database schema verified', {
+          tableCount: tables.length,
+          tables: tables
+        }, 'DATABASE_TABLES');
       }
       release();
     });

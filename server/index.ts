@@ -6,6 +6,14 @@ import { setupVite, serveStatic } from "./vite";
 import { ENV, validateEnvironment, initializeDirectories, checkServiceConnections } from "./config";
 import { logger } from "./logger";
 import { requestLogger, errorLogger } from "./middleware/logging";
+import { 
+  runStartupDiagnostics, 
+  logPortBinding, 
+  logDatabaseConnection,
+  logMiddlewareSetup,
+  logStartupComplete,
+  logStartupError 
+} from "./startup-diagnostics";
 
 // Print startup banner with more details
 const startupTime = new Date().toISOString();
@@ -19,6 +27,9 @@ console.log(`
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
+// Main async function to handle startup
+async function startApplication() {
+  
 // Log startup with comprehensive system info
 logger.info('🚀 Starting MATT application', {
   environment: ENV.NODE_ENV,
@@ -57,6 +68,9 @@ checkServiceConnections();
 logger.info('Initializing required directories', {}, 'STARTUP');
 initializeDirectories();
 
+// Run comprehensive startup diagnostics
+await runStartupDiagnostics();
+
 const app = express();
 
 // Log middleware setup
@@ -81,10 +95,12 @@ logger.debug('Session configuration', {
 }, 'STARTUP');
 
 app.use(session(sessionConfig));
+logMiddlewareSetup('express-session', { secure: sessionConfig.cookie.secure });
 
 // Body parser configuration with limits
 app.use(express.json({ limit: ENV.MAX_FILE_SIZE }));
 app.use(express.urlencoded({ extended: false, limit: ENV.MAX_FILE_SIZE }));
+logMiddlewareSetup('body-parser', { limit: ENV.MAX_FILE_SIZE });
 
 logger.info('Middleware configured', {
   maxFileSize: ENV.MAX_FILE_SIZE,
@@ -246,12 +262,13 @@ app.get("/health", async (req, res) => {
 
     // Start the server
     const port = ENV.PORT;
-    logger.info('Starting HTTP server', { port }, 'STARTUP');
+    const host = ENV.HOST || "localhost";
+    logger.info('Starting HTTP server', { port, host }, 'STARTUP');
+    logPortBinding(port, host);
     
     server.listen({
       port,
-      host: "0.0.0.0",
-      reusePort: true,
+      host,
     }, () => {
       appStartTimer.end({ success: true, port });
       
@@ -375,3 +392,12 @@ setInterval(() => {
     arrayBuffers: Math.round(memUsage.arrayBuffers / 1024 / 1024)
   });
 }, 60000); // Check every minute
+
+}
+
+// Start the application with error handling
+startApplication().catch((error) => {
+  console.error('💥 Failed to start application:', error);
+  logStartupError(error);
+  process.exit(1);
+});
