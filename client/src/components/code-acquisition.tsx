@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Github, HardDrive, FileText, Download, Upload, Key, Link, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Github, HardDrive, FileText, Download, Upload, Key, Link, CheckCircle, XCircle, Loader2, FolderUp } from "lucide-react";
+import { FileUploadZone } from "@/components/file-upload-zone";
 import type { Project, InsertProject } from "@shared/schema";
 
 interface CodeAcquisitionProps {
@@ -41,7 +42,7 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
 }
 
 export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionProps) {
-  const [selectedSource, setSelectedSource] = useState<"github" | "drive" | "jira">("github");
+  const [selectedSource, setSelectedSource] = useState<"github" | "drive" | "jira" | "upload">("github");
   const [connectionStatus, setConnectionStatus] = useState<{
     drive?: { connected: boolean; testing: boolean; userInfo?: any; error?: string };
     jira?: { connected: boolean; testing: boolean; userInfo?: any; error?: string };
@@ -61,6 +62,8 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
     jiraEmail: "",
     jiraApiToken: "",
   });
+
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -92,6 +95,7 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
         jiraEmail: "",
         jiraApiToken: "",
       });
+      setUploadedFiles([]);
     },
     onError: (error: any) => {
       // Try to extract a more specific error message
@@ -142,6 +146,15 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
       return;
     }
 
+    if (selectedSource === "upload" && uploadedFiles.length === 0) {
+      toast({
+        title: "Missing Files",
+        description: "Please upload at least one file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     let projectData: InsertProject;
     
     if (selectedSource === "github") {
@@ -181,8 +194,7 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
           driveAccessToken: formData.driveAccessToken,
         },
       };
-    } else {
-      // JIRA
+    } else if (selectedSource === "jira") {
       projectData = {
         name: formData.name,
         description: formData.description,
@@ -193,6 +205,21 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
           jiraProjectKey: formData.jiraProjectKey,
           jiraEmail: formData.jiraEmail,
           jiraApiToken: formData.jiraApiToken,
+        },
+      };
+    } else {
+      // File Upload
+      projectData = {
+        name: formData.name,
+        description: formData.description,
+        sourceType: "upload",
+        sourceUrl: "local_files",
+        repositoryData: {
+          uploadedFiles: uploadedFiles.map(file => ({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          })),
         },
       };
     }
@@ -308,6 +335,25 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
     }
   };
 
+  const handleFilesSelected = (files: File[]) => {
+    setUploadedFiles(files);
+  };
+
+  const handleUploadComplete = (results: any[]) => {
+    toast({
+      title: "Files Uploaded",
+      description: `${results.length} files uploaded successfully`,
+    });
+  };
+
+  const handleUploadError = (error: string) => {
+    toast({
+      title: "Upload Error",
+      description: error,
+      variant: "destructive",
+    });
+  };
+
   const sourceOptions = [
     {
       id: "github",
@@ -317,9 +363,16 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
       color: "border-ibm-blue bg-blue-50",
     },
     {
+      id: "upload",
+      name: "File Upload",
+      description: "Upload files directly",
+      icon: FolderUp,
+      color: "border-green-400 bg-green-50",
+    },
+    {
       id: "drive",
       name: "Google Drive",
-      description: "File upload",
+      description: "File from Drive",
       icon: HardDrive,
       color: "border-carbon-gray-20",
     },
@@ -345,7 +398,7 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
           <Label className="text-sm font-medium text-carbon-gray-70 mb-3 block">
             Select Source
           </Label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {sourceOptions.map((source) => {
               const Icon = source.icon;
               return (
@@ -612,6 +665,40 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
             </>
           )}
 
+          {/* File Upload Specific */}
+          {selectedSource === "upload" && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium text-carbon-gray-70 mb-3 block">
+                  <FolderUp className="inline w-4 h-4 mr-1" />
+                  Upload Code Files
+                </Label>
+                <FileUploadZone
+                  onFilesSelected={handleFilesSelected}
+                  onUploadComplete={handleUploadComplete}
+                  onUploadError={handleUploadError}
+                  maxFiles={100}
+                  maxFileSize={10}
+                  disabled={createProjectMutation.isPending}
+                />
+              </div>
+              
+              {uploadedFiles.length > 0 && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">
+                      {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-700 mt-1">
+                    Files will be processed when you create the project
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={handleSubmit}
             disabled={createProjectMutation.isPending}
@@ -620,9 +707,20 @@ export default function CodeAcquisition({ onProjectCreated }: CodeAcquisitionPro
             {selectedSource === "github" && <Github size={16} className="mr-2" />}
             {selectedSource === "drive" && <Upload size={16} className="mr-2" />}
             {selectedSource === "jira" && <FileText size={16} className="mr-2" />}
+            {selectedSource === "upload" && <FolderUp size={16} className="mr-2" />}
             {createProjectMutation.isPending ? 
-              `Acquiring from ${selectedSource === "github" ? "GitHub" : selectedSource === "drive" ? "Google Drive" : "JIRA"}...` : 
-              `Acquire from ${selectedSource === "github" ? "GitHub" : selectedSource === "drive" ? "Google Drive" : "JIRA"}`
+              `Acquiring from ${
+                selectedSource === "github" ? "GitHub" : 
+                selectedSource === "drive" ? "Google Drive" : 
+                selectedSource === "jira" ? "JIRA" :
+                "Uploaded Files"
+              }...` : 
+              `Acquire from ${
+                selectedSource === "github" ? "GitHub" : 
+                selectedSource === "drive" ? "Google Drive" : 
+                selectedSource === "jira" ? "JIRA" :
+                "Uploaded Files"
+              }`
             }
           </Button>
         </div>
