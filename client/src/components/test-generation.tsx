@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Play, Check, Clock, AlertCircle, Loader2, Download, Eye } from "lucide-react";
+import { Play, Check, Clock, AlertCircle, Loader2, Download, Eye, Shield } from "lucide-react";
 import EnterpriseTestDashboard from "./enterprise-test-dashboard";
+import { HumanReviewGate } from "./human-review-gate";
 import type { Project, TestCase } from "@shared/schema";
 
 interface TestGenerationProps {
@@ -18,6 +19,10 @@ interface TestGenerationProps {
 
 export default function TestGeneration({ project, onTestsGenerated }: TestGenerationProps) {
   const [selectedFramework, setSelectedFramework] = useState("comprehensive");
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [executionType, setExecutionType] = useState<'single' | 'suite'>('suite');
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | undefined>();
+  const [pendingExecution, setPendingExecution] = useState<(() => void) | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -148,6 +153,54 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
       });
     },
   });
+
+  // Human Review handlers
+  const handleRunTestWithReview = (testCaseId: number) => {
+    const testCase = testCases.find(tc => tc.id === testCaseId);
+    if (!testCase) return;
+    
+    setSelectedTestCase(testCase);
+    setExecutionType('single');
+    setPendingExecution(() => () => runTestMutation.mutate(testCaseId));
+    setIsReviewMode(true);
+  };
+
+  const handleRunTestSuiteWithReview = () => {
+    setSelectedTestCase(undefined);
+    setExecutionType('suite');
+    setPendingExecution(() => () => runTestSuiteMutation.mutate());
+    setIsReviewMode(true);
+  };
+
+  const handleReviewApprove = () => {
+    if (pendingExecution) {
+      toast({
+        title: "Test Execution Approved",
+        description: "Human review completed. Starting test execution...",
+      });
+      pendingExecution();
+      setIsReviewMode(false);
+      setPendingExecution(null);
+      setSelectedTestCase(undefined);
+    }
+  };
+
+  const handleReviewReject = () => {
+    toast({
+      title: "Test Execution Rejected",
+      description: "Test execution cancelled by human reviewer.",
+      variant: "destructive",
+    });
+    setIsReviewMode(false);
+    setPendingExecution(null);
+    setSelectedTestCase(undefined);
+  };
+
+  const handleReviewClose = () => {
+    setIsReviewMode(false);
+    setPendingExecution(null);
+    setSelectedTestCase(undefined);
+  };
 
   // Group test cases by type
   const unitTests = testCases.filter(tc => tc.type === 'unit');
@@ -299,6 +352,7 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
   const testStrategy = getTestStrategyForFramework(selectedFramework);
 
   return (
+    <>
     <Card className="mb-8">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -456,12 +510,12 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => runTestMutation.mutate(testCase.id)}
+                            onClick={() => handleRunTestWithReview(testCase.id)}
                             disabled={testCase.status === 'running' || runTestMutation.isPending}
                             className="h-6 px-2 text-xs"
                           >
-                            <Play size={10} className="mr-1" />
-                            Run
+                            <Shield size={10} className="mr-1" />
+                            Review & Run
                           </Button>
                         </div>
                       </div>
@@ -522,7 +576,7 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
               <Button 
                 className="w-full bg-ibm-blue hover:bg-blue-700"
                 disabled={testCases.length === 0 || runTestSuiteMutation.isPending}
-                onClick={() => runTestSuiteMutation.mutate()}
+                onClick={() => handleRunTestSuiteWithReview()}
               >
                 {runTestSuiteMutation.isPending ? (
                   <>
@@ -531,8 +585,8 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
                   </>
                 ) : (
                   <>
-                    <Play size={16} className="mr-2" />
-                    Run Test Suite
+                    <Shield size={16} className="mr-2" />
+                    Review & Run Test Suite
                   </>
                 )}
               </Button>
@@ -541,5 +595,18 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
         </div>
       </CardContent>
     </Card>
+      
+      {/* Human Review Gate */}
+      <HumanReviewGate
+        testCases={testCases}
+        selectedFramework={selectedFramework}
+        isReviewMode={isReviewMode}
+        onApprove={handleReviewApprove}
+        onReject={handleReviewReject}
+        onClose={handleReviewClose}
+        executionType={executionType}
+        selectedTestCase={selectedTestCase}
+      />
+    </>
   );
 }
