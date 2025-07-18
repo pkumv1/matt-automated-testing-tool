@@ -30,7 +30,7 @@ pm2 start ecosystem.config.js --env production
 ### 4. Verify Deployment
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:5000/health
 pm2 logs matt-production
 ```
 
@@ -42,7 +42,7 @@ pm2 logs matt-production
 - `SESSION_SECRET`: Secure session secret (auto-generated)
 
 ### Optional Variables
-- `PORT`: Server port (default: 3000)
+- `PORT`: Server port (default: 5000)
 - `NODE_ENV`: Environment mode (default: production)
 - `MAX_FILE_SIZE`: File upload limit (default: 50MB)
 - `LOG_LEVEL`: Logging level (default: info)

@@ -30,7 +30,7 @@ echo "📝 Creating production .env file..."
 cat > .env << EOF
 # MATT Production Environment Configuration
 NODE_ENV=production
-PORT=3000
+PORT=5000
 
 # Database Configuration  
 DATABASE_URL=${DATABASE_URL}
@@ -141,7 +141,7 @@ echo "1. Run: npm install"
 echo "2. Run: npm run build"
 echo "3. Run: pm2 start ecosystem.config.js --env production"
 echo "4. Check: pm2 logs matt-production"
-echo "5. Test: curl http://localhost:3000/health"
+echo "5. Test: curl http://localhost:5000/health"
 echo ""
 echo "🔐 Security reminder:"
 echo "- Change SESSION_SECRET to a unique value if needed"
