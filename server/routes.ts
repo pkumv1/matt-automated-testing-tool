@@ -12,6 +12,13 @@ import { githubService } from "./services/github-integration";
 import { mlTestingIntelligence } from "./services/ml-testing-intelligence";
 import multer from "multer";
 import { z } from "zod";
+import { 
+  validateUploadRequest, 
+  validateFileContent, 
+  generateSecureFilename,
+  MAX_FILE_SIZE,
+  MAX_TOTAL_SIZE 
+} from "./utils/fileUploadSecurity.js";
 
 // Constants for timeout values - no more magic numbers
 const TIMEOUTS = {
@@ -56,11 +63,23 @@ export function cleanupTimeouts(): void {
   activeTimeouts.clear();
 }
 
-// Configure multer for file uploads
+// Configure multer for file uploads with security limits
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: TIMEOUTS.FILE_SIZE_LIMIT,
+    fileSize: MAX_FILE_SIZE, // 10MB per file
+    files: 100, // Maximum 100 files
+    fieldSize: 1024 * 1024, // 1MB field size
+    fieldNameSize: 255, // Maximum field name length
+    headerPairs: 2000 // Maximum header pairs
+  },
+  fileFilter: (req, file, cb) => {
+    // Basic file validation in multer
+    const ext = file.originalname.toLowerCase();
+    if (ext.includes('..') || ext.includes('/') || ext.includes('\\')) {
+      return cb(new Error('Invalid file name'), false);
+    }
+    cb(null, true);
   }
 });
 
@@ -737,32 +756,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload code repository files
+  // Upload code repository files with comprehensive security validation
   app.post("/api/upload", upload.array('files'), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
-        return res.status(400).json({ message: "No files uploaded" });
+        return res.status(400).json({ 
+          message: "No files uploaded",
+          code: "NO_FILES"
+        });
       }
 
-      // Process uploaded files
-      const fileData = files.map(file => ({
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        content: file.buffer.toString('base64')
-      }));
+      // Validate upload request (file count, total size, individual file validation)
+      const uploadValidation = validateUploadRequest(files);
+      if (!uploadValidation.valid) {
+        return res.status(400).json({ 
+          message: uploadValidation.error,
+          code: "VALIDATION_FAILED"
+        });
+      }
+
+      // Validate file content for each file
+      for (const file of files) {
+        const contentValidation = validateFileContent(file);
+        if (!contentValidation.valid) {
+          return res.status(400).json({ 
+            message: `File "${file.originalname}": ${contentValidation.error}`,
+            code: "CONTENT_VALIDATION_FAILED"
+          });
+        }
+      }
+
+      // Process uploaded files with secure filenames
+      const fileData = files.map(file => {
+        const secureFilename = generateSecureFilename(file.originalname);
+        return {
+          originalName: file.originalname,
+          secureFilename: secureFilename,
+          mimeType: file.mimetype,
+          size: file.size,
+          content: file.buffer.toString('base64'),
+          uploadedAt: new Date().toISOString()
+        };
+      });
+
+      // Log successful upload for security monitoring
+      console.log(`Secure file upload completed: ${files.length} files, total size: ${files.reduce((sum, f) => sum + f.size, 0)} bytes`);
 
       res.json({ 
         message: "Files uploaded successfully",
         files: fileData.map(f => ({ 
-          name: f.originalName, 
-          size: f.size 
-        }))
+          originalName: f.originalName,
+          secureFilename: f.secureFilename,
+          size: f.size,
+          uploadedAt: f.uploadedAt
+        })),
+        totalFiles: files.length,
+        totalSize: files.reduce((sum, f) => sum + f.size, 0)
       });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to upload files" });
+    } catch (error: any) {
+      // Handle multer errors specifically
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          message: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+          code: "FILE_TOO_LARGE"
+        });
+      }
+      if (error.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ 
+          message: "Too many files uploaded",
+          code: "TOO_MANY_FILES"
+        });
+      }
+      if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ 
+          message: "Unexpected file field",
+          code: "UNEXPECTED_FILE"
+        });
+      }
+      
+      console.error('File upload error:', error);
+      res.status(500).json({ 
+        message: "Failed to upload files",
+        code: "UPLOAD_FAILED"
+      });
     }
   });
 
