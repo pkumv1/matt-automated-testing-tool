@@ -51,10 +51,11 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
     queryKey: ['/api/mcp-agents'],
   });
 
-  // Calculate actual test counts from existing data
+  // Calculate actual test counts from existing data with type safety
   const getTestCountByType = (type: string, relatedTypes: string[] = []) => {
     const allTypes = [type, ...relatedTypes];
-    return existingTests.filter(test => allTypes.includes(test.type)).length;
+    if (!Array.isArray(existingTests)) return 0;
+    return existingTests.filter((test: any) => test && allTypes.includes(test.type)).length;
   };
 
   const testCategories = [

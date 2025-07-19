@@ -122,7 +122,7 @@ class InMemoryStorage implements IStorage {
 
   async getAllProjects(lightweight: boolean = false): Promise<Project[]> {
     const projectList = Array.from(this.projects.values()).sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
 
     if (lightweight) {
