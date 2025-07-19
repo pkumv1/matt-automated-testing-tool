@@ -277,8 +277,21 @@ export function HumanReviewGate({
             </AlertDescription>
           </Alert>
 
+          {/* User Instructions */}
+          {reviewStatus === 'pending' && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2 text-blue-800">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-medium">Ready to Execute Tests</p>
+              </div>
+              <p className="text-blue-700 text-sm mt-1">
+                Review the test cases above and click the <strong>"🚀 Run Tests Now"</strong> button below to start execution.
+              </p>
+            </div>
+          )}
+
           {/* Action Buttons */}
-          <div className="flex items-center justify-between">
+          <div className="mt-6 pt-4 border-t flex items-center justify-between">
             <Button 
               variant="outline" 
               onClick={onClose}
@@ -301,11 +314,12 @@ export function HumanReviewGate({
               
               <Button 
                 onClick={handleApprove}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+                className="flex items-center space-x-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold px-8 py-4 rounded-lg shadow-xl border-2 border-green-500 transition-all hover:scale-105 hover:shadow-2xl"
                 disabled={reviewStatus !== 'pending'}
+                size="lg"
               >
-                <CheckCircle className="h-4 w-4" />
-                <span>Approve & Execute</span>
+                <Play className="h-6 w-6 animate-pulse" />
+                <span className="text-lg">🚀 Run Tests Now</span>
               </Button>
             </div>
           </div>

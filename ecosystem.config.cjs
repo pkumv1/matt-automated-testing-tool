@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'matt-production',
     script: 'dist/index.js',
-    cwd: '/opt/reactproject/matt-automated-testing-tool',
+    cwd: process.env.APP_PATH || '/opt/reactproject/matt-automated-testing-tool',
     instances: 1,
     exec_mode: 'fork',
     env: {
@@ -47,7 +47,7 @@ module.exports = {
     name: 'matt-dev',
     script: 'npm',
     args: 'run dev',
-    cwd: '/opt/reactproject/matt-automated-testing-tool',
+    cwd: process.env.APP_PATH || '/opt/reactproject/matt-automated-testing-tool',
     interpreter: 'none',
     env: {
       NODE_ENV: 'development',
@@ -70,11 +70,11 @@ module.exports = {
   // Deploy configuration
   deploy: {
     production: {
-      user: 'root',
-      host: 'demo.mars-techs.ai',
+      user: process.env.DEPLOY_USER || 'matt',
+      host: process.env.DEPLOY_HOST || 'demo.mars-techs.ai',
       ref: 'origin/main',
       repo: 'https://github.com/pkumv1/matt-automated-testing-tool.git',
-      path: '/opt/reactproject',
+      path: process.env.DEPLOY_PATH || '/opt/reactproject',
       'pre-deploy-local': '',
       'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
       'pre-setup': '',
