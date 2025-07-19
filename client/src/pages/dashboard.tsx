@@ -10,6 +10,7 @@ import ComprehensiveReport from "@/components/comprehensive-report";
 import TestLogs from "@/components/test-logs";
 import ErrorDetails from "@/components/error-details";
 import ProductionDeployment from "@/components/production-deployment";
+import WorkflowProgress from "@/components/workflow-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -245,6 +246,13 @@ export default function Dashboard() {
 
         {activeTab === "dashboard" && activeProject && (
           <div className="space-y-6">
+            {/* Workflow Progress */}
+            <WorkflowProgress 
+              project={activeProject} 
+              analyses={analyses} 
+              testCases={testCases} 
+            />
+            
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>

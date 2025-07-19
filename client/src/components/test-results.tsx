@@ -27,7 +27,7 @@ export default function TestResults({ project }: TestResultsProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'passed':
-        return <CheckCircle size={16} className="text-green-500" />;
+        return <CheckCircle size={16} className="text-green-500 animate-pulse" />;
       case 'failed':
         return <XCircle size={16} className="text-red-500" />;
       case 'running':

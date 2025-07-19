@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Play, Check, Clock, AlertCircle, Loader2, Download, Eye, Shield } from "lucide-react";
 import EnterpriseTestDashboard from "./enterprise-test-dashboard";
 import { HumanReviewGate } from "./human-review-gate";
+import TestExecutionProgress from "./test-execution-progress";
 import type { Project, TestCase } from "@shared/schema";
 
 interface TestGenerationProps {
@@ -23,6 +24,8 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
   const [executionType, setExecutionType] = useState<'single' | 'suite'>('suite');
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | undefined>();
   const [pendingExecution, setPendingExecution] = useState<(() => void) | null>(null);
+  const [executionStartTime, setExecutionStartTime] = useState<Date | null>(null);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,6 +38,64 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
       }
     };
   }, []);
+
+  // Calculate estimated execution time based on test characteristics
+  const calculateEstimatedExecutionTime = (tests: TestCase[]) => {
+    const baseTimePerTest = {
+      'unit': 15,        // 15 seconds per unit test
+      'integration': 45,  // 45 seconds per integration test
+      'e2e': 120,        // 2 minutes per e2e test
+      'security': 60,    // 1 minute per security test
+      'performance': 90  // 1.5 minutes per performance test
+    };
+
+    const totalSeconds = tests.reduce((total, test) => {
+      const baseTime = baseTimePerTest[test.type as keyof typeof baseTimePerTest] || 30;
+      
+      // Adjust based on priority (high priority tests might be more complex)
+      const priorityMultiplier = {
+        'high': 1.3,
+        'medium': 1.0,
+        'low': 0.8
+      };
+      
+      const multiplier = priorityMultiplier[test.priority as keyof typeof priorityMultiplier] || 1.0;
+      return total + (baseTime * multiplier);
+    }, 0);
+
+    // Add overhead for test setup and teardown
+    const overhead = Math.min(tests.length * 5, 60); // 5 seconds per test, max 1 minute
+    
+    return Math.round(totalSeconds + overhead);
+  };
+
+  // Update estimated time remaining based on progress
+  useEffect(() => {
+    if (!executionStartTime || !estimatedTimeRemaining) return;
+
+    const completedTests = testCases.filter(tc => tc.status === 'passed' || tc.status === 'failed').length;
+    const totalTests = testCases.length;
+    
+    if (totalTests > 0 && completedTests > 0) {
+      const progressPercentage = completedTests / totalTests;
+      const elapsedTime = (new Date().getTime() - executionStartTime.getTime()) / 1000;
+      
+      // Recalculate remaining time based on actual progress
+      if (progressPercentage > 0.1) { // Only adjust after 10% completion
+        const estimatedTotalTime = elapsedTime / progressPercentage;
+        const newEstimatedRemaining = Math.max(0, estimatedTotalTime - elapsedTime);
+        setEstimatedTimeRemaining(Math.round(newEstimatedRemaining));
+      }
+    }
+
+    // Check if all tests are completed
+    const allCompleted = totalTests > 0 && completedTests === totalTests;
+    const hasRunningTests = testCases.some(tc => tc.status === 'running');
+    
+    if (allCompleted || !hasRunningTests) {
+      setEstimatedTimeRemaining(null);
+    }
+  }, [testCases, executionStartTime, estimatedTimeRemaining]);
 
   const { data: testCases = [] } = useQuery<TestCase[]>({
     queryKey: [`/api/projects/${project.id}/test-cases`],
@@ -139,9 +200,14 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
       return response.json();
     },
     onSuccess: () => {
+      setExecutionStartTime(new Date());
+      // Estimate execution time based on test count and type
+      const estimatedSeconds = calculateEstimatedExecutionTime(testCases);
+      setEstimatedTimeRemaining(estimatedSeconds);
+      
       toast({
         title: "Test Suite Started",
-        description: `Running ${testCases.length} test cases with ${selectedFramework}. Results will be available shortly.`,
+        description: `Running ${testCases.length} test cases with ${selectedFramework}. Estimated time: ${Math.ceil(estimatedSeconds / 60)} minutes.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'test-cases'] });
     },
@@ -595,6 +661,14 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
         </div>
       </CardContent>
     </Card>
+
+      {/* Test Execution Progress Tracking */}
+      <TestExecutionProgress 
+        testCases={testCases}
+        isRunning={runTestSuiteMutation.isPending || testCases.some(tc => tc.status === 'running')}
+        estimatedTimeRemaining={estimatedTimeRemaining || undefined}
+        startTime={executionStartTime || undefined}
+      />
       
       {/* Human Review Gate */}
       <HumanReviewGate
