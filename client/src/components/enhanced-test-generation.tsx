@@ -676,7 +676,10 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => downloadTestCase(testCase)}
+                                onClick={() => {
+                                  const safeCase = { ...testCase, results: testCase.results || null };
+                                  downloadTestCase(safeCase);
+                                }}
                               >
                                 <Download className="w-3 h-3 mr-1" />
                                 Download
@@ -684,7 +687,10 @@ ${testCase.expectedOutcome || 'No expected outcome defined'}`;
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => copyTestCase(testCase)}
+                                onClick={() => {
+                                  const safeCase = { ...testCase, results: testCase.results || null };
+                                  copyTestCase(safeCase);
+                                }}
                               >
                                 <Copy className="w-3 h-3 mr-1" />
                                 Copy

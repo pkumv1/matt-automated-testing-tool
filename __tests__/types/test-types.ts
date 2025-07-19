@@ -248,7 +248,7 @@ export const mockNext = jest.fn();
 export interface ComponentTestProps {
   project?: TestProject;
   projects?: TestProject[];
-  testCases?: TestCase[];
+  testCases?: TestTestCase[];
   analyses?: TestAnalysis[];
   agents?: TestAgent[];
   onProjectSelect?: jest.Mock;

@@ -24,7 +24,7 @@ import {
   ScatterChart,
   Scatter,
   ZAxis,
-  TreeMap
+  Treemap
 } from "recharts";
 import { 
   Zap, 
