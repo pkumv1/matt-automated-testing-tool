@@ -93,10 +93,10 @@ export const ENV = {
   // AI Services
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
   
-  // Application
+  // Application - Hardcoded for consistent deployment
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: parseInt(process.env.PORT || '5000'),
-  HOST: process.env.HOST || '0.0.0.0',
+  PORT: 5000, // Hardcoded to ensure consistent port
+  HOST: '0.0.0.0', // Hardcoded to ensure app is accessible from all IPs
   
   // Session Security
   SESSION_SECRET: process.env.SESSION_SECRET || 'matt-dev-secret-change-in-production',

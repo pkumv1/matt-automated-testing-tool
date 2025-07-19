@@ -113,8 +113,10 @@ console.log('');
 printStatus('Starting MATT in production mode...');
 console.log('');
 
-// Set production environment and start
+// Set production environment and hardcode IP/port
 process.env.NODE_ENV = 'production';
+process.env.HOST = '0.0.0.0';
+process.env.PORT = '5000';
 
 try {
   execSync('npm start', { stdio: 'inherit' });

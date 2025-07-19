@@ -7,6 +7,7 @@ module.exports = {
     exec_mode: 'fork',
     env: {
       NODE_ENV: 'production',
+      HOST: '0.0.0.0',
       PORT: 5000
     },
     error_file: './logs/pm2-error.log',
@@ -36,10 +37,14 @@ module.exports = {
     // Environment specific
     env_production: {
       NODE_ENV: 'production',
+      HOST: '0.0.0.0',
+      PORT: 5000,
       LOG_LEVEL: 'info'
     },
     env_development: {
       NODE_ENV: 'development',
+      HOST: '0.0.0.0',
+      PORT: 5000,
       LOG_LEVEL: 'debug',
       DEBUG: '*'
     }
@@ -51,6 +56,8 @@ module.exports = {
     interpreter: 'none',
     env: {
       NODE_ENV: 'development',
+      HOST: '0.0.0.0',
+      PORT: 5000,
       DEBUG: '*',
       LOG_LEVEL: 'debug'
     },
