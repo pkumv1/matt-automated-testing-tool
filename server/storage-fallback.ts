@@ -182,11 +182,13 @@ class InMemoryStorage implements IStorage {
   async createAnalysis(analysis: InsertAnalysis): Promise<Analysis> {
     const newAnalysis: Analysis = {
       id: this.nextId++,
-      ...analysis,
-      status: analysis.status || 'pending',
-      results: analysis.results || null,
-      startedAt: analysis.startedAt || null,
-      completedAt: analysis.completedAt || null,
+      projectId: analysis.projectId || null,
+      type: analysis.type,
+      agentId: analysis.agentId || null,
+      status: 'pending',
+      results: null,
+      startedAt: null,
+      completedAt: null,
     };
     
     this.analyses.set(newAnalysis.id, newAnalysis);
@@ -214,10 +216,16 @@ class InMemoryStorage implements IStorage {
   async createTestCase(testCase: InsertTestCase): Promise<TestCase> {
     const newTestCase: TestCase = {
       id: this.nextId++,
-      ...testCase,
-      status: testCase.status || 'generated',
-      executionTime: testCase.executionTime || null,
-      results: testCase.results || null,
+      projectId: testCase.projectId || null,
+      name: testCase.name,
+      description: testCase.description || null,
+      priority: testCase.priority,
+      type: testCase.type || 'unit',
+      testScript: testCase.testScript || null,
+      generatedBy: testCase.generatedBy || null,
+      status: 'generated',
+      executionTime: null,
+      results: null,
     };
     
     this.testCases.set(newTestCase.id, newTestCase);
@@ -263,9 +271,13 @@ class InMemoryStorage implements IStorage {
   async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
     const newRecommendation: Recommendation = {
       id: this.nextId++,
-      ...recommendation,
+      projectId: recommendation.projectId || null,
+      title: recommendation.title,
+      description: recommendation.description,
+      category: recommendation.category,
+      priority: recommendation.priority,
       actionable: recommendation.actionable ?? true,
-      implemented: recommendation.implemented ?? false,
+      implemented: false,
     };
     
     this.recommendations.set(newRecommendation.id, newRecommendation);

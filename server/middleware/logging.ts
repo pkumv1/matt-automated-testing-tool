@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../logger';
 import { ENV } from '../config';
+import { EnhancedLogger } from '../../enhanced-logging-config';
 
 // Extended Request interface to track timing and context
 interface ExtendedRequest extends Request {
@@ -44,6 +45,9 @@ export function requestLogger(req: ExtendedRequest, res: Response, next: NextFun
   const startTime = Date.now();
   req.startTime = startTime;
   req.requestId = generateRequestId();
+  
+  // Enhanced logging for API requests
+  EnhancedLogger.logAPIRequest(req.method, req.originalUrl, req.context?.userId, req.requestId);
   
   // Extract context from request
   req.context = {
@@ -161,6 +165,18 @@ export function requestLogger(req: ExtendedRequest, res: Response, next: NextFun
     }
     
     const message = `← ${req.method} ${req.path} ${res.statusCode} in ${duration}ms`;
+    
+    // Enhanced logging for API responses
+    EnhancedLogger.logAPIResponse(req.method, req.originalUrl, res.statusCode, duration, req.context?.userId, req.requestId);
+    
+    // Performance logging
+    if (duration > 1000) {
+      EnhancedLogger.logPerformanceMetric('slow_request', duration, 'ms', {
+        method: req.method,
+        url: req.originalUrl,
+        statusCode: res.statusCode
+      });
+    }
     
     if (isServerError) {
       logger.error(`${message} [SERVER ERROR]`, logData, 'HTTP_RESPONSE');

@@ -214,7 +214,7 @@ describe('Storage Service', () => {
         })
       });
 
-      const result = await storage.updateAgent(1, { status: 'busy' });
+      const result = await storage.updateAgentStatus(1, 'busy');
 
       expect(result).toEqual(mockUpdated[0]);
     });

@@ -137,7 +137,7 @@ export class DatabaseStorage implements IStorage {
         
         if (lightweight) {
           // For lightweight mode, exclude heavy repository_data field
-          projectList = await db.select({
+          const lightProjects = await db.select({
             id: projects.id,
             name: projects.name,
             description: projects.description,
@@ -145,9 +145,14 @@ export class DatabaseStorage implements IStorage {
             sourceUrl: projects.sourceUrl,
             analysisStatus: projects.analysisStatus,
             createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
-            repositoryData: null // Exclude large JSONB data for list view
+            updatedAt: projects.updatedAt
           }).from(projects).orderBy(desc(projects.createdAt)); // Add explicit ordering for performance
+          
+          // Map to include repositoryData as null for type compatibility
+          projectList = lightProjects.map(p => ({
+            ...p,
+            repositoryData: null
+          }));
         } else {
           projectList = await db.select().from(projects).orderBy(desc(projects.createdAt));
         }

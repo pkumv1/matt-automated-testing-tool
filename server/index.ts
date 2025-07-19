@@ -6,6 +6,7 @@ import { setupVite, serveStatic } from "./vite";
 import { ENV, validateEnvironment, initializeDirectories, checkServiceConnections } from "./config";
 import { logger } from "./logger";
 import { requestLogger, errorLogger } from "./middleware/logging";
+import { initializeEnhancedLogging, EnhancedLogger } from "../enhanced-logging-config";
 import { 
   runStartupDiagnostics, 
   logPortBinding, 
@@ -27,9 +28,21 @@ console.log(`
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
+// Export function for testing - creates a new app instance
+export function createServer() {
+  const app = express();
+  // Add basic middleware for testing
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+  return app;
+}
+
 // Main async function to handle startup
 async function startApplication() {
   
+// Initialize enhanced logging first
+initializeEnhancedLogging();
+
 // Log startup with comprehensive system info
 logger.info('🚀 Starting MATT application', {
   environment: ENV.NODE_ENV,
@@ -71,6 +84,7 @@ initializeDirectories();
 // Run comprehensive startup diagnostics
 await runStartupDiagnostics();
 
+// Create Express app
 const app = express();
 
 // Log middleware setup
