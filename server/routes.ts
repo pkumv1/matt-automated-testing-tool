@@ -10,6 +10,7 @@ import { googleDriveService } from "./services/google-drive-integration";
 import { jiraService } from "./services/jira-integration";
 import { githubService } from "./services/github-integration";
 import { mlTestingIntelligence } from "./services/ml-testing-intelligence";
+import { performanceMonitor } from "./utils/performanceMonitor";
 import multer from "multer";
 import { z } from "zod";
 import { 
@@ -85,10 +86,18 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Get all projects
+  // Get all projects with optional lightweight mode
   app.get("/api/projects", async (req, res) => {
     try {
-      const projects = await storage.getAllProjects();
+      const lightweight = req.query.lightweight === 'true';
+      const projects = await storage.getAllProjects(lightweight);
+      
+      // Set cache headers for improved performance
+      res.set({
+        'Cache-Control': 'public, max-age=30', // Cache for 30 seconds
+        'ETag': `"${JSON.stringify(projects).length}"` // Simple ETag based on data size
+      });
+      
       res.json(projects);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });
@@ -1391,6 +1400,23 @@ test('${name}', () => {
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to search GitHub repositories" });
+    }
+  });
+
+  // Performance monitoring endpoint
+  app.get("/api/performance/stats", async (req, res) => {
+    try {
+      const operation = req.query.operation as string;
+      const stats = performanceMonitor.getStats(operation);
+      const slowOpsReport = performanceMonitor.getSlowOperationsReport(1000);
+      
+      res.json({
+        stats,
+        slowOperations: slowOpsReport,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch performance stats" });
     }
   });
 

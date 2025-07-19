@@ -30,9 +30,12 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
 
   const { data: projects = [], isLoading: isQueryLoading, refetch, error } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
-    refetchInterval: 10000, // Refetch every 10 seconds to ensure data is fresh
+    queryFn: () => apiRequest('GET', '/api/projects?lightweight=true').then(res => res.json()),
+    refetchInterval: 30000, // Reduced from 10s to 30s to decrease server load
     retry: 3,
     retryDelay: 1000,
+    staleTime: 10000, // Cache data for 10 seconds before considering stale
+    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes
   });
 
   // Handle loading state
@@ -60,10 +63,10 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
         clearTimeout(autoSaveTimeoutRef.current);
       }
 
-      // Set new timeout for auto-save after 2 seconds of inactivity
+      // Set new timeout for auto-save after 3 seconds of inactivity (increased from 2s)
       autoSaveTimeoutRef.current = setTimeout(() => {
         handleSaveProject(editingId);
-      }, 2000);
+      }, 3000);
     }
 
     return () => {
@@ -225,10 +228,7 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
     setHasUnsavedChanges(true);
   };
 
-  // Refresh projects when component mounts
-  useEffect(() => {
-    refetch();
-  }, []);
+  // Removed unnecessary refetch on mount - React Query handles this automatically
 
   if (isLoading) {
     return (
@@ -328,7 +328,7 @@ export default function ProjectsManagement({ onProjectSelect, activeProject, onN
                               />
                               {hasUnsavedChanges && (
                                 <p className="text-xs text-orange-600">
-                                  Auto-saving in 2 seconds...
+                                  Auto-saving in 3 seconds...
                                 </p>
                               )}
                             </div>

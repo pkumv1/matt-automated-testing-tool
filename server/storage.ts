@@ -6,14 +6,15 @@ import {
   type Agent, type Recommendation, type InsertRecommendation
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { logger } from "./logger";
+import { performanceMonitor } from "./utils/performanceMonitor";
 
 export interface IStorage {
   // Projects
   createProject(project: InsertProject): Promise<Project>;
   getProject(id: number): Promise<Project | undefined>;
-  getAllProjects(): Promise<Project[]>;
+  getAllProjects(lightweight?: boolean): Promise<Project[]>;
   updateProject(id: number, updates: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: number): Promise<void>;
 
@@ -128,12 +129,32 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAllProjects(): Promise<Project[]> {
-    return withErrorHandling('getAllProjects', {}, async () => {
-      const projectList = await db.select().from(projects);
-      logger.debug(`Retrieved ${projectList.length} projects`);
-      return projectList;
-    });
+  async getAllProjects(lightweight: boolean = false): Promise<Project[]> {
+    return performanceMonitor.monitor('getAllProjects', async () => {
+      return withErrorHandling('getAllProjects', { lightweight }, async () => {
+        let projectList;
+        
+        if (lightweight) {
+          // For lightweight mode, exclude heavy repository_data field
+          projectList = await db.select({
+            id: projects.id,
+            name: projects.name,
+            description: projects.description,
+            sourceType: projects.sourceType,
+            sourceUrl: projects.sourceUrl,
+            analysisStatus: projects.analysisStatus,
+            createdAt: projects.createdAt,
+            updatedAt: projects.updatedAt,
+            repositoryData: null // Exclude large JSONB data for list view
+          }).from(projects).orderBy(desc(projects.createdAt)); // Add explicit ordering for performance
+        } else {
+          projectList = await db.select().from(projects).orderBy(desc(projects.createdAt));
+        }
+        
+        logger.debug(`Retrieved ${projectList.length} projects (lightweight: ${lightweight})`);
+        return projectList;
+      });
+    }, { lightweight });
   }
 
   async updateProject(id: number, updates: Partial<Project>): Promise<Project | undefined> {
