@@ -96,6 +96,7 @@ export const ENV = {
   // Application
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '5000'),
+  HOST: process.env.HOST || '0.0.0.0',
   
   // Session Security
   SESSION_SECRET: process.env.SESSION_SECRET || 'matt-dev-secret-change-in-production',

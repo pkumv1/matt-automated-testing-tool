@@ -22,10 +22,11 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`🧪 Test server listening on http://0.0.0.0:${port}`);
+const host = process.env.HOST || '0.0.0.0';
+server.listen(port, host, () => {
+  console.log(`🧪 Test server listening on http://${host}:${port}`);
   console.log(`📍 Local URL: http://localhost:${port}/health`);
-  console.log(`📍 Network URL: http://0.0.0.0:${port}/health`);
+  console.log(`📍 Network URL: http://${host}:${port}/health`);
   console.log('\nPress Ctrl+C to stop\n');
 });
 

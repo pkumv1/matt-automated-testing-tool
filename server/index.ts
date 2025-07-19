@@ -262,14 +262,11 @@ app.get("/health", async (req, res) => {
 
     // Start the server
     const port = ENV.PORT;
-    const host = ENV.HOST || "localhost";
+    const host = ENV.HOST || "0.0.0.0";
     logger.info('Starting HTTP server', { port, host }, 'STARTUP');
     logPortBinding(port, host);
     
-    server.listen({
-      port,
-      host,
-    }, () => {
+    server.listen(port, host, () => {
       appStartTimer.end({ success: true, port });
       
       logger.info('✅ Server started successfully', {

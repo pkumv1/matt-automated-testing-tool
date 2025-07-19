@@ -49,6 +49,7 @@ cat > .env << EOF
 # MATT Production Environment - Generated $(date)
 NODE_ENV=production
 PORT=5000
+HOST=0.0.0.0
 
 # Database Configuration
 DATABASE_URL=${DATABASE_URL}
