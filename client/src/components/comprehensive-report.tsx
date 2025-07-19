@@ -4,13 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Share, TrendingUp, AlertTriangle, Shield, Zap } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { SafeComponentWrapper } from "@/components/safe-component-wrapper";
+import { 
+  transformToSafeTestCases, 
+  transformToSafeAnalyses,
+  createSafeQueryResponse 
+} from "@/lib/type-safe-components";
+import {
+  safeLength,
+  safeFind,
+  safeFilter,
+  getProperty,
+  getStringProperty
+} from "@/lib/comprehensive-error-fixes";
 
 interface ComprehensiveReportProps {
   project: Project;
 }
 
 export default function ComprehensiveReport({ project }: ComprehensiveReportProps) {
-  const { data: testCases = [] } = useQuery({
+  const { data: testCasesRaw, isLoading: isLoadingTests, error: testsError } = useQuery({
     queryKey: [`/api/projects/${project.id}/test-cases`],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${project.id}/test-cases`);
@@ -19,7 +32,7 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     },
   });
 
-  const { data: analyses = [] } = useQuery({
+  const { data: analysesRaw, isLoading: isLoadingAnalyses, error: analysesError } = useQuery({
     queryKey: [`/api/projects/${project.id}/analyses`],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${project.id}/analyses`);
@@ -28,7 +41,7 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     },
   });
 
-  const { data: recommendations = [] } = useQuery({
+  const { data: recommendationsRaw, isLoading: isLoadingRecs, error: recsError } = useQuery({
     queryKey: [`/api/projects/${project.id}/recommendations`],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${project.id}/recommendations`);
@@ -37,18 +50,34 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     },
   });
 
-  // Calculate real metrics from test data
-  const totalTests = testCases.length;
-  const passedTests = testCases.filter(tc => tc.status === 'passed').length;
-  const failedTests = testCases.filter(tc => tc.status === 'failed').length;
+  // Safe data transformations
+  const testCasesResponse = createSafeQueryResponse(
+    testCasesRaw, isLoadingTests, testsError, transformToSafeTestCases, []
+  );
+  const analysesResponse = createSafeQueryResponse(
+    analysesRaw, isLoadingAnalyses, analysesError, transformToSafeAnalyses, []
+  );
+  const recommendationsResponse = createSafeQueryResponse(
+    recommendationsRaw, isLoadingRecs, recsError, (data) => data || [], []
+  );
+
+  const testCases = testCasesResponse.data;
+  const analyses = analysesResponse.data;
+  const recommendations = recommendationsResponse.data;
+
+  // Calculate real metrics from test data using safe accessors
+  const totalTests = safeLength(testCases);
+  const passedTests = safeLength(safeFilter(testCases, (tc: any) => getProperty(tc, 'status', '') === 'passed'));
+  const failedTests = safeLength(safeFilter(testCases, (tc: any) => getProperty(tc, 'status', '') === 'failed'));
   const testCoverage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
-  const riskAssessment = analyses.find(a => a.type === 'risk_assessment');
-  const overallRisk = riskAssessment?.results?.overallRisk || 'Unknown';
+  const riskAssessment = safeFind(analyses, (a: any) => getProperty(a, 'type', '') === 'risk_assessment');
+  const overallRisk = getStringProperty(getProperty(riskAssessment, 'results', {}), 'overallRisk', 'Unknown');
   
   // Calculate additional metrics
-  const criticalIssues = testCases.filter(tc => tc.status === 'failed' && tc.priority === 'high').length;
-  const completedAnalyses = analyses.filter(a => a.status === 'completed').length;
-  const totalAnalyses = analyses.length;
+  const criticalIssues = safeLength(safeFilter(testCases, (tc: any) => 
+    getProperty(tc, 'status', '') === 'failed' && getProperty(tc, 'priority', '') === 'high'));
+  const completedAnalyses = safeLength(safeFilter(analyses, (a: any) => getProperty(a, 'status', '') === 'completed'));
+  const totalAnalyses = safeLength(analyses);
   const analysisProgress = totalAnalyses > 0 ? Math.round((completedAnalyses / totalAnalyses) * 100) : 0;
   
   const metrics = {
@@ -56,7 +85,7 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     testCoverage,
     riskLevel: overallRisk,
     techDebt: 'Medium',
-    totalRecommendations: recommendations.length,
+    totalRecommendations: safeLength(recommendations),
     criticalIssues,
     analysisProgress
   };
@@ -98,16 +127,16 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
     testCoverage,
     overallRisk,
     analysesCount: analyses.length,
-    recommendationsCount: recommendations.length,
-    generatedRecommendationsCount: generatedRecommendations.length,
+    recommendationsCount: safeLength(recommendations),
+    generatedRecommendationsCount: safeLength(generatedRecommendations),
     criticalIssues,
     analysisProgress
   });
 
-  // Group recommendations by priority
-  const immediateActions = allRecommendations.filter(r => r.priority === 'immediate');
-  const shortTermActions = allRecommendations.filter(r => r.priority === 'short-term'); 
-  const longTermActions = allRecommendations.filter(r => r.priority === 'long-term');
+  // Group recommendations by priority using safe filters
+  const immediateActions = safeFilter(allRecommendations, (r: any) => getProperty(r, 'priority', '') === 'immediate');
+  const shortTermActions = safeFilter(allRecommendations, (r: any) => getProperty(r, 'priority', '') === 'short-term'); 
+  const longTermActions = safeFilter(allRecommendations, (r: any) => getProperty(r, 'priority', '') === 'long-term');
 
   const getMetricColor = (value: any, type: string) => {
     if (type === 'codeQuality') {
@@ -150,7 +179,8 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
   };
 
   return (
-    <Card>
+    <SafeComponentWrapper componentName="ComprehensiveReport">
+      <Card>
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-carbon-gray-100">
@@ -275,7 +305,8 @@ export default function ComprehensiveReport({ project }: ComprehensiveReportProp
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </SafeComponentWrapper>
   );
 }

@@ -20,6 +20,10 @@ import {
   SafeTestCase,
   SafeAnalysis
 } from "@/lib/type-safe-components";
+import {
+  getProperty,
+  getStringProperty
+} from "@/lib/comprehensive-error-fixes";
 
 interface EnhancedTestGenerationProps {
   project: Project;
@@ -94,46 +98,46 @@ ${tc.expectedOutcome || 'No expected outcome defined'}
     URL.revokeObjectURL(url);
   };
 
-  const downloadTestCase = (testCase: TestCase) => {
+  const downloadTestCase = (testCase: any) => {
     const content = `
-# Test Case: ${testCase.name}
-**Type:** ${testCase.type}
-**Priority:** ${testCase.priority}
-**Status:** ${testCase.status}
-**Description:** ${testCase.description || 'No description provided'}
+# Test Case: ${getProperty(testCase, 'name', 'Unnamed')}
+**Type:** ${getProperty(testCase, 'type', 'unknown')}
+**Priority:** ${getProperty(testCase, 'priority', 'medium')}
+**Status:** ${getProperty(testCase, 'status', 'pending')}
+**Description:** ${getProperty(testCase, 'description', 'No description provided')}
 
 ## Test Script
-\`\`\`${testCase.framework || 'javascript'}
-${testCase.script || 'No script available'}
+\`\`\`${getProperty(testCase, 'framework', 'javascript')}
+${getProperty(testCase, 'script', getProperty(testCase, 'testScript', 'No script available'))}
 \`\`\`
 
 ## Expected Outcome
-${testCase.expectedOutcome || 'No expected outcome defined'}
+${getProperty(testCase, 'expectedOutcome', 'No expected outcome defined')}
 `;
 
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${testCase.name.replace(/\s+/g, '-')}-test-case.md`;
+    a.download = `${getStringProperty(testCase, 'name', 'test-case').replace(/\s+/g, '-')}-test-case.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const copyTestCase = (testCase: TestCase) => {
-    const content = `Test Case: ${testCase.name}
-Type: ${testCase.type}
-Priority: ${testCase.priority}
-Status: ${testCase.status}
-Description: ${testCase.description || 'No description provided'}
+  const copyTestCase = (testCase: any) => {
+    const content = `Test Case: ${getProperty(testCase, 'name', 'Unnamed')}
+Type: ${getProperty(testCase, 'type', 'unknown')}
+Priority: ${getProperty(testCase, 'priority', 'medium')}
+Status: ${getProperty(testCase, 'status', 'pending')}
+Description: ${getProperty(testCase, 'description', 'No description provided')}
 
 Test Script:
-${testCase.script || 'No script available'}
+${getProperty(testCase, 'script', getProperty(testCase, 'testScript', 'No script available'))}
 
 Expected Outcome:
-${testCase.expectedOutcome || 'No expected outcome defined'}`;
+${getProperty(testCase, 'expectedOutcome', 'No expected outcome defined')}`;
 
     navigator.clipboard.writeText(content);
     toast({

@@ -4,13 +4,23 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock, Loader2 } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { SafeComponentWrapper } from "@/components/safe-component-wrapper";
+import { 
+  transformToSafeAnalyses,
+  createSafeQueryResponse 
+} from "@/lib/type-safe-components";
+import {
+  safeFind,
+  getProperty,
+  getStringProperty
+} from "@/lib/comprehensive-error-fixes";
 
 interface AnalysisWorkflowProps {
   project: Project;
 }
 
 export default function AnalysisWorkflow({ project }: AnalysisWorkflowProps) {
-  const { data: analyses = [] } = useQuery({
+  const { data: analysesRaw, isLoading: isLoadingAnalyses, error: analysesError } = useQuery({
     queryKey: ['/api/projects', project.id, 'analyses'],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${project.id}/analyses`);
@@ -21,6 +31,12 @@ export default function AnalysisWorkflow({ project }: AnalysisWorkflowProps) {
     },
     refetchInterval: 2000, // Poll every 2 seconds for updates
   });
+
+  // Safe data transformations
+  const analysesResponse = createSafeQueryResponse(
+    analysesRaw, isLoadingAnalyses, analysesError, transformToSafeAnalyses, []
+  );
+  const analyses = analysesResponse.data;
 
   const steps = [
     { id: "code_acquisition", name: "Code Acquisition", type: "acquisition" },
@@ -35,7 +51,7 @@ export default function AnalysisWorkflow({ project }: AnalysisWorkflowProps) {
       return "completed"; // Always completed since project exists
     }
     
-    const analysis = analyses.find(a => a.type === stepType);
+    const analysis = safeFind(analyses, (a: any) => getProperty(a, 'type', '') === stepType);
     const status = analysis?.status || "pending";
     
     // Debug logging
@@ -70,12 +86,13 @@ export default function AnalysisWorkflow({ project }: AnalysisWorkflowProps) {
   const totalSteps = steps.length;
   const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-  // Mock current analysis data
-  const currentStep = steps.find(step => getStepStatus(step.type) === "running");
-  const currentAnalysis = currentStep ? analyses.find(a => a.type === currentStep.type) : null;
+  // Mock current analysis data using safe accessors
+  const currentStep = safeFind(steps, (step: any) => getStepStatus(getProperty(step, 'type', '')) === "running");
+  const currentAnalysis = currentStep ? safeFind(analyses, (a: any) => getProperty(a, 'type', '') === getProperty(currentStep, 'type', '')) : null;
 
   return (
-    <Card className="mb-8">
+    <SafeComponentWrapper componentName="AnalysisWorkflow">
+      <Card className="mb-8">
       <CardContent className="p-6">
         <h2 className="text-xl font-semibold text-carbon-gray-100 mb-6">
           Analysis Workflow
@@ -242,7 +259,8 @@ export default function AnalysisWorkflow({ project }: AnalysisWorkflowProps) {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </SafeComponentWrapper>
   );
 }

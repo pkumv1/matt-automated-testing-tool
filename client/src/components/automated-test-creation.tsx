@@ -17,6 +17,24 @@ import {
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { SafeComponentWrapper, SafeDataRenderer, SafeListRenderer } from "@/components/safe-component-wrapper";
+import { 
+  transformToSafeTestCases, 
+  transformToSafeAnalyses,
+  transformToSafeAgents,
+  createSafeQueryResponse 
+} from "@/lib/type-safe-components";
+import {
+  safeLength,
+  safeFind,
+  safeFilter,
+  safeMap,
+  safeSome,
+  getProperty,
+  getStringProperty,
+  getNumberProperty,
+  getArrayProperty
+} from "@/lib/comprehensive-error-fixes";
 
 interface AutomatedTestCreationProps {
   project: Project;
@@ -31,25 +49,40 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
   const [isExecuting, setIsExecuting] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [executionProgress, setExecutionProgress] = useState(0);
-  const [generatedScripts, setGeneratedScripts] = useState<any[]>([]);
-  const [executionResults, setExecutionResults] = useState<any[]>([]);
-  const [analysisReport, setAnalysisReport] = useState<any>(null);
-  const [testRecommendations, setTestRecommendations] = useState<any[]>([]);
+  const [generatedScripts, setGeneratedScripts] = useState<unknown[]>([]);
+  const [executionResults, setExecutionResults] = useState<unknown[]>([]);
+  const [analysisReport, setAnalysisReport] = useState<unknown>(null);
+  const [testRecommendations, setTestRecommendations] = useState<unknown[]>([]);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: analyses = [] } = useQuery({
+  const { data: analysesRaw, isLoading: isLoadingAnalyses, error: analysesError } = useQuery({
     queryKey: [`/api/projects/${project.id}/analyses`],
   });
 
-  const { data: existingTests = [] } = useQuery({
+  const { data: existingTestsRaw, isLoading: isLoadingTests, error: testsError } = useQuery({
     queryKey: [`/api/projects/${project.id}/test-cases`],
   });
 
-  const { data: mcpAgents = [] } = useQuery({
+  const { data: mcpAgentsRaw, isLoading: isLoadingAgents, error: agentsError } = useQuery({
     queryKey: ['/api/mcp-agents'],
   });
+
+  // Safe data transformations
+  const analysesResponse = createSafeQueryResponse(
+    analysesRaw, isLoadingAnalyses, analysesError, transformToSafeAnalyses, []
+  );
+  const existingTestsResponse = createSafeQueryResponse(
+    existingTestsRaw, isLoadingTests, testsError, transformToSafeTestCases, []
+  );
+  const mcpAgentsResponse = createSafeQueryResponse(
+    mcpAgentsRaw, isLoadingAgents, agentsError, transformToSafeAgents, []
+  );
+
+  const analyses = analysesResponse.data;
+  const existingTests = existingTestsResponse.data;
+  const mcpAgents = mcpAgentsResponse.data;
 
   // Calculate actual test counts from existing data with type safety
   const getTestCountByType = (type: string, relatedTypes: string[] = []) => {
@@ -243,8 +276,8 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
             categories: selectedCategories,
             complexity: testComplexity,
             frameworks: targetFrameworks,
-            analysisData: analyses.find(a => a.type === 'initial_analysis')?.results,
-            riskData: analyses.find(a => a.type === 'risk_assessment')?.results,
+            analysisData: safeFind(analyses, (a: any) => a.type === 'initial_analysis')?.results,
+            riskData: safeFind(analyses, (a: any) => a.type === 'risk_assessment')?.results,
             existingTests: existingTests // Include existing test data for context
           })
         });
@@ -369,10 +402,11 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
     return Math.round((selectedCount / maxCategories) * 100);
   };
 
-  const hasAnalysisData = Array.isArray(analyses) && analyses.some((a: any) => a?.type === 'initial_analysis' && a?.results);
+  const hasAnalysisData = safeSome(analyses, (a: any) => getProperty(a, 'type', '') === 'initial_analysis' && getProperty(a, 'results', null) !== null);
 
   return (
-    <div className="space-y-6">
+    <SafeComponentWrapper componentName="AutomatedTestCreation">
+      <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-6 rounded-lg">
         <div className="flex items-center justify-between mb-4">
@@ -502,7 +536,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 {platforms.map((platform) => {
                   const Icon = platform.icon;
                   const isSelected = selectedPlatforms.includes(platform.id);
-                  const mcpAgent = mcpAgents.agents?.find(a => a.platform === platform.id);
+                  const mcpAgent = safeFind(getArrayProperty(mcpAgents, 'agents', []), (a: any) => getProperty(a, 'platform', '') === platform.id);
                   
                   return (
                     <div
@@ -637,15 +671,15 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                     <div key={index} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <h3 className="font-semibold">{script.name}</h3>
-                          <p className="text-sm text-gray-600">{script.description}</p>
+                          <h3 className="font-semibold">{getStringProperty(script, 'name', 'Unnamed Script')}</h3>
+                          <p className="text-sm text-gray-600">{getStringProperty(script, 'description', 'No description')}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={script.priority === 'critical' ? 'destructive' : 'secondary'}>
-                            {script.priority}
+                          <Badge variant={getStringProperty(script, 'priority', '') === 'critical' ? 'destructive' : 'secondary'}>
+                            {getStringProperty(script, 'priority', 'normal')}
                           </Badge>
                           <Badge variant="outline">
-                            {script.platform}
+                            {getStringProperty(script, 'platform', 'unknown')}
                           </Badge>
                         </div>
                       </div>
@@ -791,19 +825,20 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <div className="text-3xl font-bold text-blue-600">
-                        {analysisReport.summary.totalTests}
+                        {getNumberProperty(getProperty(analysisReport, 'summary', {}), 'totalTests', 0)}
                       </div>
                       <div className="text-sm text-gray-600 font-medium">Total Tests</div>
                     </div>
                     <div className="text-center p-4 bg-orange-50 rounded-lg">
                       <div className="text-3xl font-bold text-orange-600">
-                        {analysisReport.securityFindings.critical + analysisReport.securityFindings.high}
+                        {getNumberProperty(getProperty(analysisReport, 'securityFindings', {}), 'critical', 0) + 
+                         getNumberProperty(getProperty(analysisReport, 'securityFindings', {}), 'high', 0)}
                       </div>
                       <div className="text-sm text-gray-600 font-medium">Critical Issues</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
                       <div className="text-3xl font-bold text-purple-600">
-                        {analysisReport.performanceMetrics.responseTime}ms
+                        {getNumberProperty(getProperty(analysisReport, 'performanceMetrics', {}), 'responseTime', 0)}ms
                       </div>
                       <div className="text-sm text-gray-600 font-medium">Avg Response</div>
                     </div>
@@ -864,11 +899,11 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                     {/* Security Summary */}
                     <div className="grid grid-cols-4 gap-4 mb-6">
                       <div className="text-center p-3 bg-red-50 rounded">
-                        <div className="text-xl font-bold text-red-600">{analysisReport.securityFindings.critical}</div>
+                        <div className="text-xl font-bold text-red-600">{getNumberProperty(getProperty(analysisReport, 'securityFindings', {}), 'critical', 0)}</div>
                         <div className="text-xs text-gray-600">Critical</div>
                       </div>
                       <div className="text-center p-3 bg-orange-50 rounded">
-                        <div className="text-xl font-bold text-orange-600">{analysisReport.securityFindings.high}</div>
+                        <div className="text-xl font-bold text-orange-600">{getNumberProperty(getProperty(analysisReport, 'securityFindings', {}), 'high', 0)}</div>
                         <div className="text-xs text-gray-600">High</div>
                       </div>
                       <div className="text-center p-3 bg-yellow-50 rounded">
@@ -876,14 +911,14 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                         <div className="text-xs text-gray-600">Medium</div>
                       </div>
                       <div className="text-center p-3 bg-gray-50 rounded">
-                        <div className="text-xl font-bold text-gray-600">{analysisReport.securityFindings.low}</div>
+                        <div className="text-xl font-bold text-gray-600">{getNumberProperty(getProperty(analysisReport, 'securityFindings', {}), 'low', 0)}</div>
                         <div className="text-xs text-gray-600">Low</div>
                       </div>
                     </div>
 
                     {/* Vulnerability Details */}
                     <div className="space-y-3">
-                      {analysisReport.securityFindings.vulnerabilities.map((vuln, index) => (
+                      {safeMap(getArrayProperty(getProperty(analysisReport, 'securityFindings', {}), 'vulnerabilities', []), (vuln: any, index: number) => (
                         <div key={index} className="border-l-4 border-red-400 bg-red-50 pl-4 py-3 rounded-r">
                           <div className="flex items-center gap-2 mb-2">
                             <Badge variant={vuln.severity === 'high' ? 'destructive' : 'secondary'}>
@@ -916,13 +951,13 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600">
-                        {analysisReport.performanceMetrics.responseTime}ms
+                        {getNumberProperty(getProperty(analysisReport, 'performanceMetrics', {}), 'responseTime', 0)}ms
                       </div>
                       <div className="text-sm text-gray-600">Avg Response Time</div>
                     </div>
                     <div className="text-center p-4 bg-green-50 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">
-                        {analysisReport.performanceMetrics.throughput}
+                        {getNumberProperty(getProperty(analysisReport, 'performanceMetrics', {}), 'throughput', 0)}
                       </div>
                       <div className="text-sm text-gray-600">Requests/sec</div>
                     </div>
@@ -934,11 +969,11 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                     </div>
                   </div>
                   
-                  {analysisReport.performanceMetrics.bottlenecks.length > 0 && (
+                  {safeLength(getArrayProperty(getProperty(analysisReport, 'performanceMetrics', {}), 'bottlenecks', [])) > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
                       <h4 className="font-semibold text-yellow-800 mb-2">Performance Bottlenecks:</h4>
                       <ul className="space-y-1">
-                        {analysisReport.performanceMetrics.bottlenecks.map((bottleneck, index) => (
+                        {safeMap(getArrayProperty(getProperty(analysisReport, 'performanceMetrics', {}), 'bottlenecks', []), (bottleneck: any, index: number) => (
                           <li key={index} className="text-sm text-yellow-700">• {bottleneck}</li>
                         ))}
                       </ul>
@@ -971,10 +1006,10 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                     </div>
                   </div>
                   
-                  {analysisReport.accessibilityResults.violations.length > 0 && (
+                  {safeLength(getArrayProperty(getProperty(analysisReport, 'accessibilityResults', {}), 'violations', [])) > 0 && (
                     <div className="space-y-3">
                       <h4 className="font-semibold">Accessibility Violations:</h4>
-                      {analysisReport.accessibilityResults.violations.map((violation, index) => (
+                      {safeMap(getArrayProperty(getProperty(analysisReport, 'accessibilityResults', {}), 'violations', []), (violation: any, index: number) => (
                         <div key={index} className="border-l-4 border-orange-400 bg-orange-50 pl-4 py-2 rounded-r">
                           <div className="flex items-center gap-2 mb-1">
                             <Badge variant="secondary">{violation.impact}</Badge>
@@ -1001,7 +1036,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {analysisReport.recommendations.map((rec, index) => (
+                    {safeMap(getArrayProperty(analysisReport, 'recommendations', []), (rec: any, index: number) => (
                       <div key={index} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between mb-3">
                           <span className="font-semibold text-lg">{rec.title}</span>
@@ -1073,7 +1108,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 <Card className="border-red-200 bg-red-50">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-red-600">
-                      {testRecommendations.filter(r => r.priority === 'high').length}
+                      {safeLength(safeFilter(testRecommendations, (r: any) => getProperty(r, 'priority', '') === 'high'))}
                     </div>
                     <div className="text-sm text-red-700">High Priority</div>
                   </CardContent>
@@ -1081,7 +1116,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 <Card className="border-orange-200 bg-orange-50">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-orange-600">
-                      {testRecommendations.filter(r => r.priority === 'medium').length}
+                      {safeLength(safeFilter(testRecommendations, (r: any) => getProperty(r, 'priority', '') === 'medium'))}
                     </div>
                     <div className="text-sm text-orange-700">Medium Priority</div>
                   </CardContent>
@@ -1101,7 +1136,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 const categoryRecs = testRecommendations.filter(r => r.category === category);
                 if (categoryRecs.length === 0) return null;
 
-                const categoryIcons = {
+                const categoryIcons: Record<string, React.ComponentType<any>> = {
                   security: Shield,
                   performance: Zap,
                   quality: CheckCircle,
@@ -1186,7 +1221,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
                 <CardContent>
                   <div className="space-y-4">
                     {['high', 'medium', 'low'].map((priority, phaseIndex) => {
-                      const priorityRecs = testRecommendations.filter(r => r.priority === priority);
+                      const priorityRecs = safeFilter(testRecommendations, (r: any) => getProperty(r, 'priority', '') === priority);
                       if (priorityRecs.length === 0) return null;
 
                       return (
@@ -1333,7 +1368,8 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
             )}
           </Button>
         )}
+        </div>
       </div>
-    </div>
+    </SafeComponentWrapper>
   );
 }

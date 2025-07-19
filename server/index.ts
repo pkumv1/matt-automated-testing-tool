@@ -7,6 +7,7 @@ import { ENV, validateEnvironment, initializeDirectories, checkServiceConnection
 import { logger } from "./logger";
 import { requestLogger, errorLogger } from "./middleware/logging";
 import { initializeEnhancedLogging, EnhancedLogger } from "../enhanced-logging-config";
+import { logger as comprehensiveLogger, createLoggingMiddleware } from "../comprehensive-deployment-logger";
 import { 
   runStartupDiagnostics, 
   logPortBinding, 
@@ -125,6 +126,14 @@ logger.info('Middleware configured', {
   jsonLimit: ENV.MAX_FILE_SIZE,
   urlencodedLimit: ENV.MAX_FILE_SIZE
 }, 'STARTUP');
+
+// Add comprehensive deployment logging middleware
+app.use(createLoggingMiddleware());
+comprehensiveLogger.log('info', 'SYSTEM', 'Server', 'Comprehensive deployment logging enabled', {
+  environment: ENV.NODE_ENV,
+  port: ENV.PORT,
+  timestamp: new Date().toISOString()
+});
 
 // Add comprehensive logging middleware
 app.use(requestLogger);
