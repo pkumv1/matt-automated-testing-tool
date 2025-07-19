@@ -31,7 +31,7 @@ export default function EnhancedTestGeneration({ project, onScriptsGenerated }: 
 
   // Calculate estimated test count when selection changes
   useEffect(() => {
-    const testsPerCategory = {
+    const testsPerCategory: { [key: string]: number } = {
       security: 12,
       functional: 15,
       nonFunctional: 9,

@@ -33,6 +33,5 @@ export function render(
   return rtlRender(ui, { wrapper: Wrapper, ...renderOptions });
 }
 
-// Re-export everything
-export * from '@testing-library/react';
-export { render };
+// Re-export everything except render to avoid conflicts
+export { screen, fireEvent, waitFor, act } from '@testing-library/react';

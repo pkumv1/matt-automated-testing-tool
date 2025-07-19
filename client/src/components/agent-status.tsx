@@ -85,7 +85,7 @@ export default function AgentStatus({ agents }: AgentStatusProps) {
                   </div>
                 </div>
                 <Icon 
-                  className={getIconColor(agent.type, agent.status)} 
+                  className={getIconColor(agent.type, agent.status || 'unknown')} 
                   size={16} 
                 />
               </div>

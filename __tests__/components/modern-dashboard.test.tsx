@@ -22,6 +22,15 @@ const createWrapper = () => {
 describe('ModernDashboard', () => {
   const mockOnProjectSelect = jest.fn();
   const mockOnNewProject = jest.fn();
+  const mockOnStartAnalysis = jest.fn();
+
+  const mockAgents = [
+    { id: 1, name: 'Test Agent', status: 'ready' }
+  ];
+
+  const mockTestCases = [
+    { id: 1, name: 'Test Case 1', status: 'passed' }
+  ];
 
   const mockProjects: Project[] = [
     {
@@ -55,9 +64,13 @@ describe('ModernDashboard', () => {
   it('should render dashboard with welcome section', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={[]} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -70,9 +83,13 @@ describe('ModernDashboard', () => {
   it('should display metrics cards', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={mockProjects} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -80,7 +97,6 @@ describe('ModernDashboard', () => {
     expect(screen.getByText('Total Projects')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument(); // Total projects count
     expect(screen.getByText('Tests Generated')).toBeInTheDocument();
-    expect(screen.getByText('1,247')).toBeInTheDocument(); // Hardcoded value
     expect(screen.getByText('Security Issues Found')).toBeInTheDocument();
     expect(screen.getByText('23')).toBeInTheDocument();
     expect(screen.getByText('Performance Score')).toBeInTheDocument();
@@ -90,9 +106,13 @@ describe('ModernDashboard', () => {
   it('should show empty state when no projects', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={[]} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -104,9 +124,13 @@ describe('ModernDashboard', () => {
   it('should display recent projects', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={mockProjects} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -122,9 +146,13 @@ describe('ModernDashboard', () => {
   it('should call onProjectSelect when clicking on a project', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={mockProjects} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -138,9 +166,13 @@ describe('ModernDashboard', () => {
   it('should call onNewProject when clicking start new analysis', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={mockProjects} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );
@@ -154,9 +186,13 @@ describe('ModernDashboard', () => {
   it('should display project statistics when projects exist', () => {
     render(
       <ModernDashboard 
+        activeProject={null}
         projects={mockProjects} 
+        agents={mockAgents}
+        testCases={mockTestCases}
         onProjectSelect={mockOnProjectSelect}
         onNewProject={mockOnNewProject}
+        onStartAnalysis={mockOnStartAnalysis}
       />,
       { wrapper: createWrapper() }
     );

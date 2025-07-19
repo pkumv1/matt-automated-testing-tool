@@ -498,7 +498,7 @@ export default function ModernDashboard({
               ) : (
                 <div className="space-y-3">
                   {projects.slice(0, 5).map((project) => {
-                    const StatusIcon = getStatusIcon(project.analysisStatus);
+                    const StatusIcon = getStatusIcon(project.analysisStatus || 'pending');
                     return (
                       <div 
                         key={project.id}
@@ -506,7 +506,7 @@ export default function ModernDashboard({
                         onClick={() => onProjectSelect(project)}
                       >
                         <div className="flex items-center space-x-3">
-                          <StatusIcon className={`w-5 h-5 ${getStatusColor(project.analysisStatus)}`} />
+                          <StatusIcon className={`w-5 h-5 ${getStatusColor(project.analysisStatus || 'pending')}`} />
                           <div>
                             <h4 className="font-medium text-gray-900">{project.name}</h4>
                             <p className="text-sm text-gray-500">{project.description}</p>
