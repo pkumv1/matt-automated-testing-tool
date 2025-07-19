@@ -12,13 +12,10 @@ const __dirname = path.dirname(__filename);
 function loadEnvironmentVariables() {
   const envPath = path.resolve(process.cwd(), '.env');
   
-  // In production, rely on actual environment variables
-  if (process.env.NODE_ENV === 'production') {
-    console.log('✓ Running in production mode, using system environment variables');
-    return;
-  }
+  // Always try to load .env file first, then fall back to system environment variables
+  console.log(`🔧 Loading environment variables in ${process.env.NODE_ENV || 'development'} mode`);
   
-  // In development, try to load from .env file
+  // Try to load from .env file regardless of environment
   try {
     if (fs.existsSync(envPath)) {
       const result = dotenv.config({ path: envPath });
@@ -27,12 +24,32 @@ function loadEnvironmentVariables() {
         console.error('❌ Error parsing .env file:', result.error);
         console.log('⚠️  Using system environment variables instead');
       } else {
-        console.log('✓ Loaded environment variables from .env file');
+        console.log('✓ Loaded environment variables from .env file:', envPath);
+        // In production, validate that critical variables are set
+        if (process.env.NODE_ENV === 'production') {
+          const criticalVars = ['DATABASE_URL', 'ANTHROPIC_API_KEY'];
+          const missing = criticalVars.filter(key => !process.env[key]);
+          if (missing.length > 0) {
+            console.error('❌ Critical environment variables missing from .env:', missing);
+          } else {
+            console.log('✓ All critical environment variables loaded from .env file');
+          }
+        }
       }
     } else {
       console.log('⚠️  No .env file found at:', envPath);
-      console.log('⚠️  Using system environment variables');
-      console.log('💡 Tip: Copy .env.example to .env and update with your values');
+      
+      if (process.env.NODE_ENV === 'production') {
+        console.log('⚠️  Production mode: Relying on system environment variables');
+        const criticalVars = ['DATABASE_URL', 'ANTHROPIC_API_KEY'];
+        const missing = criticalVars.filter(key => !process.env[key]);
+        if (missing.length > 0) {
+          console.error('❌ Critical environment variables missing from system:', missing);
+          console.error('💡 Create .env file or set system environment variables');
+        }
+      } else {
+        console.log('💡 Tip: Copy .env.example to .env and update with your values');
+      }
     }
   } catch (error) {
     console.error('❌ Error loading environment variables:', error);
