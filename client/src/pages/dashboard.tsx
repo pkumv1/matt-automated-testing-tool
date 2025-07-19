@@ -11,6 +11,7 @@ import TestLogs from "@/components/test-logs";
 import ErrorDetails from "@/components/error-details";
 import ProductionDeployment from "@/components/production-deployment";
 import WorkflowProgress from "@/components/workflow-progress";
+import WorkflowMessaging from "@/components/workflow-messaging";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,12 @@ export default function Dashboard() {
   // Fetch test cases for the active project
   const { data: testCases = [] } = useQuery({
     queryKey: ['/api/projects', activeProject?.id, 'test-cases'],
+    enabled: !!activeProject?.id,
+  });
+
+  // Fetch analyses for the active project
+  const { data: analyses = [] } = useQuery({
+    queryKey: ['/api/projects', activeProject?.id, 'analyses'],
     enabled: !!activeProject?.id,
   });
 
@@ -251,6 +258,13 @@ export default function Dashboard() {
               project={activeProject} 
               analyses={analyses} 
               testCases={testCases} 
+            />
+            
+            {/* Workflow Messaging */}
+            <WorkflowMessaging
+              project={activeProject}
+              analyses={analyses}
+              testCases={testCases}
             />
             
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
