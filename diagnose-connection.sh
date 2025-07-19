@@ -189,7 +189,7 @@ else
     echo ""
     echo "🔧 Recommended fixes:"
     if [[ " ${ISSUES[@]} " =~ "PM2 process not running" ]]; then
-        echo "1. Start PM2: pm2 start ecosystem.config.js --env production"
+        echo "1. Start PM2: pm2 start ecosystem.config.cjs --env production"
     fi
     if [[ " ${ISSUES[@]} " =~ "Build output missing" ]]; then
         echo "2. Rebuild: npm run build"

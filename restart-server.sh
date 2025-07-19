@@ -49,7 +49,7 @@ npm run build
 
 # Start with PM2
 echo "🚀 Starting with PM2..."
-pm2 start ecosystem.config.js --env production
+pm2 start ecosystem.config.cjs --env production
 
 # Wait and check status
 sleep 5

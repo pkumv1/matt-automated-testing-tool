@@ -24,7 +24,7 @@ chmod +x setup-production-env.sh
 ```bash
 npm install
 npm run build
-pm2 start ecosystem.config.js --env production
+pm2 start ecosystem.config.cjs --env production
 ```
 
 ### 4. Verify Deployment

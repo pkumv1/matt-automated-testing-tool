@@ -76,7 +76,7 @@ module.exports = {
       repo: 'https://github.com/pkumv1/matt-automated-testing-tool.git',
       path: '/opt/reactproject',
       'pre-deploy-local': '',
-      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.cjs --env production',
+      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
       'pre-setup': '',
       'ssh_options': 'StrictHostKeyChecking=no'
     }

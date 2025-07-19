@@ -137,7 +137,7 @@ echo ""
 # Step 8: Start the application with PM2
 echo "🚀 Step 8: Starting application with PM2"
 echo "----------------------------------------"
-pm2 start ecosystem.config.js --env production
+pm2 start ecosystem.config.cjs --env production
 sleep 5
 
 # Check if the process started successfully
