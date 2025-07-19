@@ -12,6 +12,11 @@ import ErrorDetails from "@/components/error-details";
 import ProductionDeployment from "@/components/production-deployment";
 import WorkflowProgress from "@/components/workflow-progress";
 import WorkflowMessaging from "@/components/workflow-messaging";
+import HistoricalTrends from "@/components/historical-trends";
+import AdvancedExport from "@/components/advanced-export";
+import QualityGates from "@/components/quality-gates";
+import AdvancedDashboard from "@/components/advanced-dashboard";
+import TestOptimization from "@/components/test-optimization";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +73,12 @@ export default function Dashboard() {
     { id: "dashboard", label: "Dashboard" },
     { id: "projects", label: "Projects" },
     { id: "agents", label: "Agents" },
+    { id: "analytics", label: "Analytics" },
+    { id: "trends", label: "Trends" },
+    { id: "quality-gates", label: "Quality Gates" },
+    { id: "optimization", label: "Optimization" },
     { id: "reports", label: "Reports" },
+    { id: "export", label: "Export" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -364,7 +374,12 @@ export default function Dashboard() {
         )}
 
         {activeTab === "agents" && <AgentStatus />}
+        {activeTab === "analytics" && <AdvancedDashboard projectId={activeProject?.id} />}
+        {activeTab === "trends" && <HistoricalTrends projectId={activeProject?.id} />}
+        {activeTab === "quality-gates" && <QualityGates projectId={activeProject?.id} />}
+        {activeTab === "optimization" && <TestOptimization projectId={activeProject?.id} />}
         {activeTab === "reports" && <ComprehensiveReport />}
+        {activeTab === "export" && <AdvancedExport projectId={activeProject?.id} projectName={activeProject?.name} />}
         {activeTab === "settings" && (
           <div className="text-center py-16">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Settings</h2>
