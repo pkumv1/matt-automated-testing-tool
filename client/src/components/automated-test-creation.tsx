@@ -369,7 +369,7 @@ export default function AutomatedTestCreation({ project }: AutomatedTestCreation
     return Math.round((selectedCount / maxCategories) * 100);
   };
 
-  const hasAnalysisData = analyses.some(a => a.type === 'initial_analysis' && a.results);
+  const hasAnalysisData = Array.isArray(analyses) && analyses.some((a: any) => a?.type === 'initial_analysis' && a?.results);
 
   return (
     <div className="space-y-6">

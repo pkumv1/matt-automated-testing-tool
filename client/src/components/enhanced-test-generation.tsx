@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import type { Project, TestCase } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  transformToSafeTestCases, 
+  transformToSafeAnalyses,
+  createSafeQueryResponse,
+  SafeTestCase,
+  SafeAnalysis
+} from "@/lib/type-safe-components";
 
 interface EnhancedTestGenerationProps {
   project: Project;
@@ -25,9 +32,19 @@ export default function EnhancedTestGeneration({ project, onScriptsGenerated }: 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: testCases = [], isLoading: isLoadingTestCases } = useQuery({
+  const { data: testCasesRaw, isLoading: isLoadingTestCases, error: testCasesError } = useQuery({
     queryKey: [`/api/projects/${project.id}/test-cases`],
   });
+  
+  const testCasesResponse = createSafeQueryResponse(
+    testCasesRaw,
+    isLoadingTestCases,
+    testCasesError,
+    transformToSafeTestCases,
+    []
+  );
+  
+  const testCases: SafeTestCase[] = testCasesResponse.data;
 
   // Calculate estimated test count when selection changes
   useEffect(() => {
@@ -46,7 +63,7 @@ export default function EnhancedTestGeneration({ project, onScriptsGenerated }: 
   }, [selectedTestTypes]);
 
   const downloadTestCases = () => {
-    const testCaseContent = testCases.map(tc => {
+    const testCaseContent = testCases.map((tc: SafeTestCase) => {
       return `
 # Test Case: ${tc.name}
 **Type:** ${tc.type}
@@ -55,8 +72,8 @@ export default function EnhancedTestGeneration({ project, onScriptsGenerated }: 
 **Description:** ${tc.description || 'No description provided'}
 
 ## Test Script
-\`\`\`${tc.framework || 'javascript'}
-${tc.script || 'No script available'}
+\`\`\`${tc.framework || tc.testScript ? 'javascript' : 'javascript'}
+${tc.script || tc.testScript || 'No script available'}
 \`\`\`
 
 ## Expected Outcome

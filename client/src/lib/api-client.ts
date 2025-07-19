@@ -19,8 +19,8 @@ import type {
   TestExecutionResult,
   AnalysisResult,
   PlatformTestResult,
-  queryKeys,
 } from '@shared/api-types';
+import { queryKeys } from '@shared/api-types';
 
 // =============================================================================
 // API Client Functions

@@ -103,10 +103,15 @@ class InMemoryStorage implements IStorage {
 
   // Projects
   async createProject(project: InsertProject): Promise<Project> {
+    const typedProject = project as any;
     const newProject: Project = {
       id: this.nextId++,
-      ...project,
-      analysisStatus: project.analysisStatus || 'pending',
+      name: typedProject.name,
+      description: typedProject.description ?? null,
+      sourceType: typedProject.sourceType,
+      sourceUrl: typedProject.sourceUrl ?? null,
+      repositoryData: typedProject.repositoryData ?? null,
+      analysisStatus: typedProject.analysisStatus ?? 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -180,11 +185,12 @@ class InMemoryStorage implements IStorage {
 
   // Analyses
   async createAnalysis(analysis: InsertAnalysis): Promise<Analysis> {
+    const typedAnalysis = analysis as any;
     const newAnalysis: Analysis = {
       id: this.nextId++,
-      projectId: analysis.projectId || null,
-      type: analysis.type,
-      agentId: analysis.agentId || null,
+      projectId: typedAnalysis.projectId ?? null,
+      type: typedAnalysis.type,
+      agentId: typedAnalysis.agentId ?? null,
       status: 'pending',
       results: null,
       startedAt: null,
@@ -214,15 +220,16 @@ class InMemoryStorage implements IStorage {
 
   // Test Cases
   async createTestCase(testCase: InsertTestCase): Promise<TestCase> {
+    const typedTestCase = testCase as any;
     const newTestCase: TestCase = {
       id: this.nextId++,
-      projectId: testCase.projectId || null,
-      name: testCase.name,
-      description: testCase.description || null,
-      priority: testCase.priority,
-      type: testCase.type || 'unit',
-      testScript: testCase.testScript || null,
-      generatedBy: testCase.generatedBy || null,
+      projectId: typedTestCase.projectId ?? null,
+      name: typedTestCase.name,
+      description: typedTestCase.description ?? null,
+      priority: typedTestCase.priority,
+      type: typedTestCase.type ?? 'unit',
+      testScript: typedTestCase.testScript ?? null,
+      generatedBy: typedTestCase.generatedBy ?? null,
       status: 'generated',
       executionTime: null,
       results: null,
@@ -269,14 +276,15 @@ class InMemoryStorage implements IStorage {
 
   // Recommendations
   async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
+    const typedRecommendation = recommendation as any;
     const newRecommendation: Recommendation = {
       id: this.nextId++,
-      projectId: recommendation.projectId || null,
-      title: recommendation.title,
-      description: recommendation.description,
-      category: recommendation.category,
-      priority: recommendation.priority,
-      actionable: recommendation.actionable ?? true,
+      projectId: typedRecommendation.projectId ?? null,
+      title: typedRecommendation.title,
+      description: typedRecommendation.description,
+      category: typedRecommendation.category,
+      priority: typedRecommendation.priority,
+      actionable: typedRecommendation.actionable ?? true,
       implemented: false,
     };
     
