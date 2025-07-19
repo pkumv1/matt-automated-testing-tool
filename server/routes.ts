@@ -11,6 +11,7 @@ import { jiraService } from "./services/jira-integration";
 import { githubService } from "./services/github-integration";
 import { mlTestingIntelligence } from "./services/ml-testing-intelligence";
 import { performanceMonitor } from "./utils/performanceMonitor";
+import { checkStorageHealth } from "./storage";
 import multer from "multer";
 import { z } from "zod";
 import { 
@@ -1417,6 +1418,27 @@ test('${name}', () => {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch performance stats" });
+    }
+  });
+
+  // Storage health endpoint
+  app.get("/api/health/storage", async (req, res) => {
+    try {
+      const health = await checkStorageHealth();
+      res.json({
+        ...health,
+        timestamp: new Date().toISOString(),
+        message: health.type === 'memory' 
+          ? 'Using in-memory storage - data will not persist between restarts'
+          : 'Connected to PostgreSQL database'
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        type: 'unknown',
+        healthy: false,
+        message: "Failed to check storage health",
+        timestamp: new Date().toISOString()
+      });
     }
   });
 

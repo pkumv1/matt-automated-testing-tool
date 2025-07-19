@@ -9,6 +9,7 @@ import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { logger } from "./logger";
 import { performanceMonitor } from "./utils/performanceMonitor";
+import { InMemoryStorage } from "./storage-fallback";
 
 export interface IStorage {
   // Projects
@@ -342,4 +343,60 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Create storage instance with fallback logic
+function createStorage(): IStorage {
+  try {
+    // Check if database connection is available
+    const dbUrl = process.env.DATABASE_URL;
+    
+    if (!dbUrl) {
+      logger.warn('⚠️  DATABASE_URL not set, using in-memory storage fallback', {}, 'STORAGE_INIT');
+      return new InMemoryStorage();
+    }
+    
+    // Try to create database storage
+    const dbStorage = new DatabaseStorage();
+    logger.info('✅ Using PostgreSQL database storage', {}, 'STORAGE_INIT');
+    return dbStorage;
+    
+  } catch (error) {
+    logger.error('❌ Database storage failed, falling back to in-memory storage', { error }, 'STORAGE_INIT');
+    return new InMemoryStorage();
+  }
+}
+
+export const storage = createStorage();
+
+// Add health check function
+export async function checkStorageHealth(): Promise<{
+  type: 'database' | 'memory';
+  healthy: boolean;
+  details: any;
+}> {
+  try {
+    if (storage instanceof InMemoryStorage) {
+      return {
+        type: 'memory',
+        healthy: true,
+        details: (storage as any).getStorageStats()
+      };
+    } else {
+      // For database storage, try a simple operation
+      const projects = await storage.getAllProjects(true);
+      return {
+        type: 'database',
+        healthy: true,
+        details: {
+          projectCount: projects.length,
+          connected: true
+        }
+      };
+    }
+  } catch (error) {
+    return {
+      type: storage instanceof InMemoryStorage ? 'memory' : 'database',
+      healthy: false,
+      details: { error: error instanceof Error ? error.message : 'Unknown error' }
+    };
+  }
+}

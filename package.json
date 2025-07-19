@@ -8,7 +8,8 @@
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "setup": "node setup-env.js",
+    "setup": "node quick-setup.js",
+    "setup-env": "node setup-env.js",
     "dev": "cross-env NODE_ENV=development HOST=0.0.0.0 PORT=5000 tsx server/index.ts",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build && cross-env NODE_OPTIONS=--max-old-space-size=4096 esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production HOST=0.0.0.0 PORT=5000 node dist/index.js",
