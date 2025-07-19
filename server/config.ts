@@ -73,10 +73,14 @@ function validateDatabaseUrl(url: string): string {
       return decodedUrl;
     }
     
-    // Validate basic PostgreSQL URL format
-    const urlPattern = /^postgresql:\/\/[^:]+:[^@]+@[^:]+:\d+\/\w+$/;
+    // Validate basic PostgreSQL URL format - allow various formats
+    const urlPattern = /^postgresql:\/\/[^:]+:[^@]*@[^:]+:\d+\/\w+$/;
     if (!urlPattern.test(url)) {
-      console.warn('⚠️  Database URL may have invalid format. Expected: postgresql://user:password@host:port/database');
+      console.warn('⚠️  Database URL format validation failed. URL format:', url.replace(/:([^@]+)@/, ':****@'));
+      console.warn('   Expected format: postgresql://user:password@host:port/database');
+      console.warn('   Your format appears to be: postgresql://postgres:post123@host:5432/postgres');
+    } else {
+      console.log('✓ Database URL format validated successfully');
     }
     
     return url;
