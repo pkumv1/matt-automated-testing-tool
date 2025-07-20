@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-20T07:54:19.759Z",
+  "timestamp": "2025-07-20T12:00:37.527Z",
   "buildSuccess": false,
   "error": "Command failed: npx",
   "stack": "Error: Command failed: npx\n    at ChildProcess.<anonymous> (D:\\agentic_ai\\claude_code\\test_project\\matt-automated-testing-tool\\build-fix.cjs:39:16)\n    at ChildProcess.emit (node:events:518:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)",

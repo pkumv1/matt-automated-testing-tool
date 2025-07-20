@@ -32,31 +32,31 @@ console.log(`
 
 // Main async function to handle startup
 async function startApplication() {
-  
-// Initialize enhanced logging first
-initializeEnhancedLogging();
+  try {
+    // Initialize enhanced logging first
+    initializeEnhancedLogging();
 
-// Log startup with comprehensive system info
-logger.info('🚀 Starting MATT application', {
-  environment: ENV.NODE_ENV,
-  nodeVersion: process.version,
-  pid: process.pid,
-  platform: process.platform,
-  arch: process.arch,
-  cpus: os.cpus().length,
-  totalMemory: `${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`,
-  freeMemory: `${Math.round(os.freemem() / 1024 / 1024 / 1024)}GB`,
-  workingDirectory: process.cwd(),
-  execPath: process.execPath,
-  argv: process.argv,
-  env: {
-    NODE_ENV: ENV.NODE_ENV,
-    PORT: ENV.PORT,
-    DATABASE_CONFIGURED: !!ENV.DATABASE_URL,
-    AI_SERVICE_CONFIGURED: !!ENV.ANTHROPIC_API_KEY,
-    SESSION_SECRET_CONFIGURED: !!ENV.SESSION_SECRET
-  }
-}, 'STARTUP');
+    // Log startup with comprehensive system info
+    logger.info('🚀 Starting MATT application', {
+      environment: ENV.NODE_ENV,
+      nodeVersion: process.version,
+      pid: process.pid,
+      platform: process.platform,
+      arch: process.arch,
+      cpus: os.cpus().length,
+      totalMemory: `${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`,
+      freeMemory: `${Math.round(os.freemem() / 1024 / 1024 / 1024)}GB`,
+      workingDirectory: process.cwd(),
+      execPath: process.execPath,
+      argv: process.argv,
+      env: {
+        NODE_ENV: ENV.NODE_ENV,
+        PORT: ENV.PORT,
+        DATABASE_CONFIGURED: !!ENV.DATABASE_URL,
+        AI_SERVICE_CONFIGURED: !!ENV.ANTHROPIC_API_KEY,
+        SESSION_SECRET_CONFIGURED: !!ENV.SESSION_SECRET
+      }
+    }, 'STARTUP');
 
 // Validate environment and initialize
 logger.debug('Validating environment configuration', {}, 'STARTUP');
@@ -405,12 +405,149 @@ setInterval(() => {
   });
 }, 60000); // Check every minute
 
+  } catch (error: any) {
+    logger.logError('💥 Critical application startup failure', error, 'STARTUP_FAILURE');
+    
+    // Log comprehensive error information for debugging
+    logger.fatal('Application failed to initialize', {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      port: ENV.PORT,
+      environment: ENV.NODE_ENV,
+      nodeVersion: process.version,
+      platform: process.platform,
+      cwd: process.cwd(),
+      processUptime: process.uptime(),
+      memoryUsage: process.memoryUsage(),
+      timestamp: new Date().toISOString()
+    }, 'STARTUP_FAILURE');
+    
+    // Log specific deployment troubleshooting information
+    if (error.code === 'EADDRINUSE') {
+      logger.fatal('🚨 PORT CONFLICT: Another process is using the port', {
+        port: ENV.PORT,
+        troubleshooting: [
+          `Check what's using port ${ENV.PORT}: lsof -i :${ENV.PORT} or ss -tlnp | grep :${ENV.PORT}`,
+          `Kill the process: sudo kill -9 <PID>`,
+          `Check PM2 processes: pm2 list`,
+          `Stop all PM2 processes: pm2 delete all`,
+          `Try a different port: PORT=3001 npm start`
+        ]
+      }, 'PORT_CONFLICT');
+    } else if (error.code === 'ENOTFOUND' || error.message.includes('database')) {
+      logger.fatal('🚨 DATABASE CONNECTION FAILED', {
+        databaseUrl: ENV.DATABASE_URL ? 'configured' : 'not configured',
+        troubleshooting: [
+          'Check if PostgreSQL is running: sudo systemctl status postgresql',
+          'Test database connection: psql -h localhost -U postgres -d testdb',
+          'Check database logs: journalctl -u postgresql -n 20',
+          'Verify database credentials in .env file',
+          'Ensure database exists: createdb testdb'
+        ]
+      }, 'DATABASE_FAILURE');
+    } else if (error.code === 'ENOENT') {
+      logger.fatal('🚨 FILE/DIRECTORY NOT FOUND', {
+        path: error.path,
+        troubleshooting: [
+          'Check if dist directory exists: ls -la dist/',
+          'Build the application: npm run build',
+          'Check file permissions: ls -la logs/',
+          'Verify working directory: pwd'
+        ]
+      }, 'FILE_NOT_FOUND');
+    }
+    
+    // Output to console for immediate visibility
+    console.error(`
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                     🚨 STARTUP FAILURE 🚨                     ║
+    ║                                                              ║
+    ║  The MATT application failed to start. Check the logs for   ║
+    ║  detailed error information and troubleshooting steps.      ║
+    ║                                                              ║
+    ║  Error: ${error.message}                                     ║
+    ║  Code: ${error.code || 'Unknown'}                           ║
+    ║  Timestamp: ${new Date().toISOString()}                     ║
+    ║                                                              ║
+    ║  Logs available at:                                         ║
+    ║  • Error log: logs/error-${new Date().toISOString().split('T')[0]}.log       ║
+    ║  • App log: logs/app-${new Date().toISOString().split('T')[0]}.log           ║
+    ║                                                              ║
+    ╚══════════════════════════════════════════════════════════════╝
+    `);
+    
+    throw error; // Re-throw to be caught by the outer handler
+  }
 }
 
-// Start the application with error handling
+// Start the application with enhanced error handling for deployment
 startApplication().catch((error) => {
   console.error('💥 Failed to start application:', error);
-  logStartupError(error);
+  
+  // Log to startup diagnostics if available
+  try {
+    logStartupError(error);
+  } catch (logError) {
+    console.error('Failed to log startup error:', logError);
+  }
+  
+  // Generate deployment diagnostics
+  console.error(`
+═══════════════════════════════════════════════════════════════════
+📋 DEPLOYMENT DIAGNOSTICS
+═══════════════════════════════════════════════════════════════════
+
+🚨 STARTUP FAILURE DETECTED
+Error: ${error.message}
+Code: ${error.code || 'Unknown'}
+Time: ${new Date().toISOString()}
+
+📋 IMMEDIATE CHECKS TO PERFORM:
+
+1. Port Status:
+   lsof -i :${ENV.PORT} || ss -tlnp | grep :${ENV.PORT}
+
+2. Process Management:
+   pm2 list
+   ps aux | grep node
+
+3. Database Connection:
+   systemctl status postgresql
+   psql -h localhost -U postgres -d testdb -c "SELECT version();"
+
+4. File System:
+   ls -la /opt/reactproject/matt-automated-testing-tool/
+   ls -la dist/
+   ls -la logs/
+
+5. Dependencies:
+   cd /opt/reactproject/matt-automated-testing-tool
+   npm list --depth=0
+
+6. Environment:
+   env | grep -E "(NODE_ENV|PORT|DATABASE_URL)"
+
+7. Build Status:
+   npm run build
+
+📁 LOG LOCATIONS:
+   • Error: logs/error-${new Date().toISOString().split('T')[0]}.log
+   • App: logs/app-${new Date().toISOString().split('T')[0]}.log
+   • Debug: logs/debug-${new Date().toISOString().split('T')[0]}.log
+
+🔧 COMMON SOLUTIONS:
+   • Port conflict: sudo kill -9 $(lsof -t -i:${ENV.PORT})
+   • PM2 cleanup: pm2 delete all && pm2 flush
+   • Rebuild: rm -rf dist node_modules && npm install && npm run build
+   • Permissions: sudo chown -R $USER:www-data /opt/reactproject/matt-automated-testing-tool/
+
+═══════════════════════════════════════════════════════════════════
+  `);
+  
+  // Exit with failure code for process managers
   process.exit(1);
 });
 // Export createServer function for testing
