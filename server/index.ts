@@ -425,3 +425,25 @@ startApplication().catch((error) => {
   logStartupError(error);
   process.exit(1);
 });
+// Export createServer function for testing
+export async function createServer() {
+  const app = express();
+  
+  app.use(session({
+    secret: ENV.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: ENV.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000
+    }
+  }));
+
+  app.use(requestLogger);
+  registerRoutes(app);
+  app.use(errorLogger);
+
+  const server = app.listen(0); // Use port 0 for testing
+  return { app, server };
+}
