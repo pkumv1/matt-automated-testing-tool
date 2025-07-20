@@ -29,18 +29,6 @@ console.log(`
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
-// Export function for testing - creates a new app instance with server
-export function createServer() {
-  const app = express();
-  // Add basic middleware for testing
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
-  
-  // Create HTTP server for testing
-  const server = require('http').createServer(app);
-  
-  return { app, server };
-}
 
 // Main async function to handle startup
 async function startApplication() {
