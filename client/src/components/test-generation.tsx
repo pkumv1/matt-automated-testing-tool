@@ -69,6 +69,27 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
     return Math.round(totalSeconds + overhead);
   };
 
+  const { data: testCases = [] } = useQuery<TestCase[]>({
+    queryKey: [`/api/projects/${project.id}/test-cases`],
+    queryFn: async () => {
+      console.log(`Frontend: Fetching test cases for project ${project.id}`);
+      const response = await fetch(`/api/projects/${project.id}/test-cases`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch test cases');
+      }
+      const data = await response.json();
+      console.log('Frontend: Raw test cases response:', data);
+      console.log('Frontend: Test cases length:', data.length);
+      return data;
+    },
+    refetchInterval: 10000, // Increased from 3s to 10s to reduce memory usage
+    refetchIntervalInBackground: false, // Stop polling when tab is not active
+  });
+
+  const { data: analyses = [] } = useQuery({
+    queryKey: ['/api/projects', project.id, 'analyses'],
+  });
+
   // Update estimated time remaining based on progress
   useEffect(() => {
     if (!executionStartTime || !estimatedTimeRemaining) return;
@@ -96,27 +117,6 @@ export default function TestGeneration({ project, onTestsGenerated }: TestGenera
       setEstimatedTimeRemaining(null);
     }
   }, [testCases, executionStartTime, estimatedTimeRemaining]);
-
-  const { data: testCases = [] } = useQuery<TestCase[]>({
-    queryKey: [`/api/projects/${project.id}/test-cases`],
-    queryFn: async () => {
-      console.log(`Frontend: Fetching test cases for project ${project.id}`);
-      const response = await fetch(`/api/projects/${project.id}/test-cases`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch test cases');
-      }
-      const data = await response.json();
-      console.log('Frontend: Raw test cases response:', data);
-      console.log('Frontend: Test cases length:', data.length);
-      return data;
-    },
-    refetchInterval: 10000, // Increased from 3s to 10s to reduce memory usage
-    refetchIntervalInBackground: false, // Stop polling when tab is not active
-  });
-
-  const { data: analyses = [] } = useQuery({
-    queryKey: ['/api/projects', project.id, 'analyses'],
-  });
 
   const generateTestsMutation = useMutation({
     mutationFn: async () => {
