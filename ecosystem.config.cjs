@@ -1,91 +1,51 @@
+// PM2 Configuration for MATT Application
+// Production-ready process management
+
 module.exports = {
   apps: [{
-    name: 'matt-production',
+    name: 'matt-app',
     script: 'dist/index.js',
-    cwd: process.env.APP_PATH || '/opt/reactproject/matt-automated-testing-tool',
     instances: 1,
-    exec_mode: 'fork',
+    exec_mode: 'cluster',
+    
+    // Environment
     env: {
       NODE_ENV: 'production',
       HOST: '0.0.0.0',
       PORT: 5000
     },
-    error_file: './logs/pm2-error.log',
-    out_file: './logs/pm2-out.log',
-    log_file: './logs/pm2-combined.log',
-    time: true,
-    merge_logs: true,
-    max_memory_restart: '1G',
+    
+    // Auto-restart configuration
     watch: false,
-    autorestart: true,
-    max_restarts: 10,
-    restart_delay: 5000,
+    max_memory_restart: '500M',
     min_uptime: '10s',
-    // Advanced PM2 features
-    kill_timeout: 5000,
-    wait_ready: true,
-    listen_timeout: 10000,
-    // Log rotation
+    max_restarts: 10,
+    
+    // Logging
+    error_file: 'logs/error.log',
+    out_file: 'logs/out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-    // Error handling
-    error_file_max_size: '50M',
-    out_file_max_size: '50M',
-    // Monitoring
-    instance_var: 'INSTANCE_ID',
-    // Graceful shutdown
-    shutdown_with_message: true,
-    // Environment specific
-    env_production: {
-      NODE_ENV: 'production',
-      HOST: '0.0.0.0',
-      PORT: 5000,
-      LOG_LEVEL: 'info'
-    },
-    env_development: {
-      NODE_ENV: 'development',
-      HOST: '0.0.0.0',
-      PORT: 5000,
-      LOG_LEVEL: 'debug',
-      DEBUG: '*'
-    }
-  }, {
-    name: 'matt-dev',
-    script: 'npm',
-    args: 'run dev',
-    cwd: process.env.APP_PATH || '/opt/reactproject/matt-automated-testing-tool',
-    interpreter: 'none',
-    env: {
-      NODE_ENV: 'development',
-      HOST: '0.0.0.0',
-      PORT: 5000,
-      DEBUG: '*',
-      LOG_LEVEL: 'debug'
-    },
-    error_file: './logs/pm2-dev-error.log',
-    out_file: './logs/pm2-dev-out.log',
-    log_file: './logs/pm2-dev-combined.log',
-    time: true,
     merge_logs: true,
-    watch: ['server', 'shared', '.env'],
-    ignore_watch: ['node_modules', 'logs', 'dist', '.git'],
-    watch_delay: 1000,
-    restart_delay: 3000,
+    
+    // Advanced features
+    kill_timeout: 5000,
+    listen_timeout: 3000,
+    shutdown_with_message: true,
+    
+    // Auto-restart on file changes (disabled for production)
+    ignore_watch: ['node_modules', 'logs'],
+    
+    // Graceful reload/restart
+    wait_ready: true,
     autorestart: true,
-    max_restarts: 5
-  }],
-
-  // Deploy configuration
-  deploy: {
-    production: {
-      user: process.env.DEPLOY_USER || 'matt',
-      host: process.env.DEPLOY_HOST || 'demo.mars-techs.ai',
-      ref: 'origin/main',
-      repo: 'https://github.com/pkumv1/matt-automated-testing-tool.git',
-      path: process.env.DEPLOY_PATH || '/opt/reactproject',
-      'pre-deploy-local': '',
-      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
-      'pre-setup': '',
-      'ssh_options': 'StrictHostKeyChecking=no'
-    }
-  }
+    
+    // Increase restart delay
+    restart_delay: 4000,
+    
+    // Cron restart (optional - restart every day at 3 AM)
+    // cron_restart: '0 3 * * *',
+    
+    // Instance configuration
+    instance_var: 'INSTANCE_ID'
+  }]
 };
